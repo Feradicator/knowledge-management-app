@@ -23,9 +23,8 @@ import {
   INITIAL_MIND_MAPS,
   INITIAL_LEARNING_SESSIONS,
   INITIAL_ACTIVITY_LOG,
-  SAMPLE_USER_ID,
 } from "@/lib/seed-data";
-import { slugify } from "@/lib/utils";
+import { slugify, generateUUID } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import confetti from "canvas-confetti";
 
@@ -160,33 +159,36 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
             supabase.from("notes").select("*").order("updated_at", { ascending: false }),
             supabase.from("files").select("*").order("created_at", { ascending: false }),
             supabase.from("mind_maps").select("*").order("updated_at", { ascending: false }),
-            supabase.from("learning_sessions").select("*").order("session_date", { ascending: false }),
+            supabase.from("learning_sessions").select("*").order("created_at", { ascending: false }),
             supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(50),
           ]);
 
-          const dbTech = techRes.data || [];
-          const dbTopics = topicsRes.data || [];
-          const dbChecklist = checklistRes.data || [];
-          const dbNotes = notesRes.data || [];
-          const dbFiles = filesRes.data || [];
-          const dbMindMaps = mindMapsRes.data || [];
-          const dbSessions = sessionsRes.data || [];
-          const dbActivity = activityRes.data || [];
+          // If Supabase query succeeded without error, use Supabase rows
+          if (!techRes.error && techRes.data) {
+            const dbTech = techRes.data || [];
+            const dbTopics = topicsRes.data || [];
+            const dbChecklist = checklistRes.data || [];
+            const dbNotes = notesRes.data || [];
+            const dbFiles = filesRes.data || [];
+            const dbMindMaps = mindMapsRes.data || [];
+            const dbSessions = sessionsRes.data || [];
+            const dbActivity = activityRes.data || [];
 
-          setTechnologies(dbTech);
-          setTopics(dbTopics);
-          setChecklistItems(dbChecklist);
-          setNotes(dbNotes);
-          setFiles(dbFiles);
-          setMindMaps(dbMindMaps);
-          setLearningSessions(dbSessions);
-          setActivityLogs(dbActivity);
+            setTechnologies(dbTech);
+            setTopics(dbTopics);
+            setChecklistItems(dbChecklist);
+            setNotes(dbNotes);
+            setFiles(dbFiles);
+            setMindMaps(dbMindMaps);
+            setLearningSessions(dbSessions);
+            setActivityLogs(dbActivity);
 
-          saveAll(dbTech, dbTopics, dbChecklist, dbNotes, dbFiles, dbMindMaps, dbSessions, dbActivity);
-          setIsLoaded(true);
-          return;
+            saveAll(dbTech, dbTopics, dbChecklist, dbNotes, dbFiles, dbMindMaps, dbSessions, dbActivity);
+            setIsLoaded(true);
+            return;
+          }
         } catch (err) {
-          console.warn("Supabase fetch failed, falling back to local storage", err);
+          console.warn("Supabase fetch error, falling back to local storage", err);
         }
       }
 
@@ -262,8 +264,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // Helper to log activity
   const logActivity = (entityType: any, entityId: string, actionType: any, title: string, metadata = {}) => {
     const newLog: ActivityLogItem = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `act-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       entity_type: entityType,
       entity_id: entityId,
       action_type: actionType,
@@ -276,7 +278,15 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOG, JSON.stringify(updated));
 
     runSupabase(async (client) => {
-      await client.from("activity_log").insert(newLog);
+      await client.from("activity_log").insert({
+        id: newLog.id,
+        entity_type: newLog.entity_type,
+        entity_id: newLog.entity_id,
+        action_type: newLog.action_type,
+        title: newLog.title,
+        metadata: newLog.metadata,
+        created_at: newLog.created_at,
+      });
     });
   };
 
@@ -305,8 +315,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const addTechnology = (data: Partial<Technology>): Technology => {
     const name = data.name || "New Technology";
     const newTech: Technology = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `tech-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       name,
       slug: slugify(name),
       description: data.description || "",
@@ -325,7 +335,19 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("technology", newTech.id, "created", `Created technology "${newTech.name}"`);
 
     runSupabase(async (client) => {
-      await client.from("technologies").insert(newTech);
+      await client.from("technologies").insert({
+        id: newTech.id,
+        name: newTech.name,
+        slug: newTech.slug,
+        description: newTech.description,
+        icon: newTech.icon,
+        category: newTech.category,
+        color: newTech.color,
+        progress: newTech.progress,
+        is_favorite: newTech.is_favorite,
+        created_at: newTech.created_at,
+        updated_at: newTech.updated_at,
+      });
     });
 
     return newTech;
@@ -384,8 +406,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const addTopic = (data: Partial<Topic>): Topic => {
     const name = data.name || "New Topic";
     const newTopic: Topic = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `topic-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       technology_id: data.technology_id!,
       parent_topic_id: data.parent_topic_id || undefined,
       name,
@@ -407,7 +429,21 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("topic", newTopic.id, "created", `Created topic "${newTopic.name}"`);
 
     runSupabase(async (client) => {
-      await client.from("topics").insert(newTopic);
+      await client.from("topics").insert({
+        id: newTopic.id,
+        technology_id: newTopic.technology_id,
+        parent_topic_id: newTopic.parent_topic_id || null,
+        name: newTopic.name,
+        slug: newTopic.slug,
+        description: newTopic.description,
+        status: newTopic.status,
+        progress: newTopic.progress,
+        priority: newTopic.priority,
+        sort_order: newTopic.sort_order,
+        is_favorite: newTopic.is_favorite,
+        created_at: newTopic.created_at,
+        updated_at: newTopic.updated_at,
+      });
     });
 
     return newTopic;
@@ -495,8 +531,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addChecklistItem = (topicId: string, title: string): ChecklistItem => {
     const newItem: ChecklistItem = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `chk-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       topic_id: topicId,
       title,
       is_completed: false,
@@ -510,7 +546,15 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
 
     runSupabase(async (client) => {
-      await client.from("checklist_items").insert(newItem);
+      await client.from("checklist_items").insert({
+        id: newItem.id,
+        topic_id: newItem.topic_id,
+        title: newItem.title,
+        is_completed: newItem.is_completed,
+        sort_order: newItem.sort_order,
+        created_at: newItem.created_at,
+        updated_at: newItem.updated_at,
+      });
     });
 
     return newItem;
@@ -569,8 +613,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addNote = (data: Partial<Note>): Note => {
     const newNote: Note = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `note-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       technology_id: data.technology_id,
       topic_id: data.topic_id,
       title: data.title || "Untitled Note",
@@ -588,7 +632,18 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("note", newNote.id, "created", `Created note "${newNote.title}"`);
 
     runSupabase(async (client) => {
-      await client.from("notes").insert(newNote);
+      await client.from("notes").insert({
+        id: newNote.id,
+        technology_id: newNote.technology_id || null,
+        topic_id: newNote.topic_id || null,
+        title: newNote.title,
+        content_html: newNote.content_html,
+        content_json: newNote.content_json,
+        tags: newNote.tags,
+        is_favorite: newNote.is_favorite,
+        created_at: newNote.created_at,
+        updated_at: newNote.updated_at,
+      });
     });
 
     return newNote;
@@ -634,8 +689,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addFile = (data: Partial<FileItem>): FileItem => {
     const newFile: FileItem = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `file-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       technology_id: data.technology_id,
       topic_id: data.topic_id,
       filename: data.filename || "Uploaded File",
@@ -654,7 +709,18 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("file", newFile.id, "created", `Uploaded document "${newFile.filename}"`);
 
     runSupabase(async (client) => {
-      await client.from("files").insert(newFile);
+      await client.from("files").insert({
+        id: newFile.id,
+        technology_id: newFile.technology_id || null,
+        topic_id: newFile.topic_id || null,
+        name: newFile.filename,
+        file_type: newFile.file_type,
+        storage_path: newFile.storage_path,
+        file_size: newFile.file_size,
+        thumbnail_url: newFile.public_url,
+        created_at: newFile.created_at,
+        updated_at: newFile.updated_at,
+      });
     });
 
     return newFile;
@@ -687,8 +753,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addMindMap = (data: Partial<MindMap>): MindMap => {
     const newMap: MindMap = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `map-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       technology_id: data.technology_id,
       topic_id: data.topic_id,
       title: data.title || "Untitled Mind Map",
@@ -707,7 +773,18 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("mind_map", newMap.id, "created", `Created mind map "${newMap.title}"`);
 
     runSupabase(async (client) => {
-      await client.from("mind_maps").insert(newMap);
+      await client.from("mind_maps").insert({
+        id: newMap.id,
+        technology_id: newMap.technology_id || null,
+        topic_id: newMap.topic_id || null,
+        title: newMap.title,
+        description: newMap.description,
+        nodes_json: newMap.nodes_json,
+        edges_json: newMap.edges_json,
+        is_favorite: newMap.is_favorite,
+        created_at: newMap.created_at,
+        updated_at: newMap.updated_at,
+      });
     });
 
     return newMap;
@@ -758,7 +835,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       data: {
         label: tech ? tech.name : "Technology Roadmap",
         description: tech?.description || "Architecture & Learning Tree",
-        status: "Learning",
+        status: "Learning" as TopicStatus,
         color: tech?.color || "#6366f1",
       },
       position: { x: 300, y: 150 },
@@ -832,7 +909,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
         data: {
           label: item.title,
           description: item.is_completed ? "Completed Milestone" : "Pending Action",
-          status: item.is_completed ? "Completed" : "Learning",
+          status: (item.is_completed ? "Completed" : "Learning") as TopicStatus,
           color: item.is_completed ? "#10b981" : "#f59e0b",
         },
         position: { x: 600, y },
@@ -862,8 +939,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const addLearningSession = (data: Partial<LearningSession>): LearningSession => {
     const tech = technologies.find((t) => t.id === data.technology_id);
     const newSession: LearningSession = {
-      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess-${Date.now()}`,
-      user_id: SAMPLE_USER_ID,
+      id: generateUUID(),
+      user_id: "",
       technology_id: data.technology_id || null,
       topic_id: data.topic_id || null,
       date: data.date || new Date().toISOString().split("T")[0],
@@ -881,7 +958,15 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     logActivity("session", newSession.id, "created", `Logged ${newSession.duration_minutes}m study on ${newSession.title}`);
 
     runSupabase(async (client) => {
-      await client.from("learning_sessions").insert(newSession);
+      await client.from("learning_sessions").insert({
+        id: newSession.id,
+        technology_id: newSession.technology_id,
+        topic_id: newSession.topic_id,
+        session_date: newSession.date,
+        duration_minutes: newSession.duration_minutes,
+        notes: newSession.description,
+        created_at: newSession.created_at,
+      });
     });
 
     return newSession;
@@ -1077,12 +1162,10 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const totalTopics = topics.length;
     const completedTopics = topics.filter((t) => t.status === "Completed" || t.progress === 100).length;
     const inProgressTopics = topics.filter((t) => t.status === "Learning" && (t.progress || 0) < 100).length;
-    const notStartedTopics = topics.filter((t) => t.status === "Not Started").length;
     const totalNotes = notes.length;
     const totalMindMaps = mindMaps.length;
     const totalFiles = files.length;
     const totalMinutes = learningSessions.reduce((acc, curr) => acc + curr.duration_minutes, 0);
-    const overallProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
     return {
       totalTechnologies: totalTech,
