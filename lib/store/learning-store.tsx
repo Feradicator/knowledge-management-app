@@ -26,6 +26,7 @@ import {
   SAMPLE_USER_ID,
 } from "@/lib/seed-data";
 import { slugify } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import confetti from "canvas-confetti";
 
 const STORAGE_KEYS = {
@@ -37,6 +38,7 @@ const STORAGE_KEYS = {
   MIND_MAPS: "kma_mind_maps",
   SESSIONS: "kma_sessions",
   ACTIVITY_LOG: "kma_activity_log",
+  SUPABASE_SYNCED: "kma_supabase_synced",
 };
 
 interface SearchResult {
@@ -128,62 +130,103 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const [learningSessions, setLearningSessions] = useState<LearningSession[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
 
-  // Load initial data from localStorage or fallback to rich seed dataset
-  useEffect(() => {
-    try {
-      const storedTech = localStorage.getItem(STORAGE_KEYS.TECHNOLOGIES);
-      const storedTopics = localStorage.getItem(STORAGE_KEYS.TOPICS);
-      const storedChecklist = localStorage.getItem(STORAGE_KEYS.CHECKLIST);
-      const storedNotes = localStorage.getItem(STORAGE_KEYS.NOTES);
-      const storedFiles = localStorage.getItem(STORAGE_KEYS.FILES);
-      const storedMindMaps = localStorage.getItem(STORAGE_KEYS.MIND_MAPS);
-      const storedSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
-      const storedActivity = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LOG);
+  const supabase = useMemo(() => createClient(), []);
 
-      if (storedTech) {
-        setTechnologies(JSON.parse(storedTech));
-        setTopics(storedTopics ? JSON.parse(storedTopics) : INITIAL_TOPICS);
-        setChecklistItems(storedChecklist ? JSON.parse(storedChecklist) : INITIAL_CHECKLIST_ITEMS);
-        setNotes(storedNotes ? JSON.parse(storedNotes) : INITIAL_NOTES);
-        setFiles(storedFiles ? JSON.parse(storedFiles) : INITIAL_FILES);
-        setMindMaps(storedMindMaps ? JSON.parse(storedMindMaps) : INITIAL_MIND_MAPS);
-        setLearningSessions(storedSessions ? JSON.parse(storedSessions) : INITIAL_LEARNING_SESSIONS);
-        setActivityLogs(storedActivity ? JSON.parse(storedActivity) : INITIAL_ACTIVITY_LOG);
-      } else {
-        // Initialize with default rich seed data
-        setTechnologies(INITIAL_TECHNOLOGIES);
-        setTopics(INITIAL_TOPICS);
-        setChecklistItems(INITIAL_CHECKLIST_ITEMS);
-        setNotes(INITIAL_NOTES);
-        setFiles(INITIAL_FILES);
-        setMindMaps(INITIAL_MIND_MAPS);
-        setLearningSessions(INITIAL_LEARNING_SESSIONS);
-        setActivityLogs(INITIAL_ACTIVITY_LOG);
-        saveAll(
-          INITIAL_TECHNOLOGIES,
-          INITIAL_TOPICS,
-          INITIAL_CHECKLIST_ITEMS,
-          INITIAL_NOTES,
-          INITIAL_FILES,
-          INITIAL_MIND_MAPS,
-          INITIAL_LEARNING_SESSIONS,
-          INITIAL_ACTIVITY_LOG
-        );
+  // Initialize data: When Supabase is configured, fetch live database rows.
+  useEffect(() => {
+    async function loadData() {
+      if (supabase) {
+        try {
+          // Fetch directly from live Supabase PostgreSQL
+          const [
+            techRes,
+            topicsRes,
+            checklistRes,
+            notesRes,
+            filesRes,
+            mindMapsRes,
+            sessionsRes,
+            activityRes,
+          ] = await Promise.all([
+            supabase.from("technologies").select("*").order("created_at", { ascending: false }),
+            supabase.from("topics").select("*").order("sort_order", { ascending: true }),
+            supabase.from("checklist_items").select("*").order("sort_order", { ascending: true }),
+            supabase.from("notes").select("*").order("updated_at", { ascending: false }),
+            supabase.from("files").select("*").order("created_at", { ascending: false }),
+            supabase.from("mind_maps").select("*").order("updated_at", { ascending: false }),
+            supabase.from("learning_sessions").select("*").order("session_date", { ascending: false }),
+            supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(50),
+          ]);
+
+          const dbTech = techRes.data || [];
+          const dbTopics = topicsRes.data || [];
+          const dbChecklist = checklistRes.data || [];
+          const dbNotes = notesRes.data || [];
+          const dbFiles = filesRes.data || [];
+          const dbMindMaps = mindMapsRes.data || [];
+          const dbSessions = sessionsRes.data || [];
+          const dbActivity = activityRes.data || [];
+
+          setTechnologies(dbTech);
+          setTopics(dbTopics);
+          setChecklistItems(dbChecklist);
+          setNotes(dbNotes);
+          setFiles(dbFiles);
+          setMindMaps(dbMindMaps);
+          setLearningSessions(dbSessions);
+          setActivityLogs(dbActivity);
+
+          saveAll(dbTech, dbTopics, dbChecklist, dbNotes, dbFiles, dbMindMaps, dbSessions, dbActivity);
+          setIsLoaded(true);
+          return;
+        } catch (err) {
+          console.warn("Supabase fetch failed, falling back to local vault", err);
+        }
       }
-    } catch (e) {
-      console.error("Error loading data from localStorage", e);
-      setTechnologies(INITIAL_TECHNOLOGIES);
-      setTopics(INITIAL_TOPICS);
-      setChecklistItems(INITIAL_CHECKLIST_ITEMS);
-      setNotes(INITIAL_NOTES);
-      setFiles(INITIAL_FILES);
-      setMindMaps(INITIAL_MIND_MAPS);
-      setLearningSessions(INITIAL_LEARNING_SESSIONS);
-      setActivityLogs(INITIAL_ACTIVITY_LOG);
-    } finally {
-      setIsLoaded(true);
+
+      // Local storage fallback
+      try {
+        const storedTech = localStorage.getItem(STORAGE_KEYS.TECHNOLOGIES);
+        const storedTopics = localStorage.getItem(STORAGE_KEYS.TOPICS);
+        const storedChecklist = localStorage.getItem(STORAGE_KEYS.CHECKLIST);
+        const storedNotes = localStorage.getItem(STORAGE_KEYS.NOTES);
+        const storedFiles = localStorage.getItem(STORAGE_KEYS.FILES);
+        const storedMindMaps = localStorage.getItem(STORAGE_KEYS.MIND_MAPS);
+        const storedSessions = localStorage.getItem(STORAGE_KEYS.SESSIONS);
+        const storedActivity = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LOG);
+
+        if (storedTech !== null) {
+          setTechnologies(JSON.parse(storedTech));
+          setTopics(storedTopics ? JSON.parse(storedTopics) : []);
+          setChecklistItems(storedChecklist ? JSON.parse(storedChecklist) : []);
+          setNotes(storedNotes ? JSON.parse(storedNotes) : []);
+          setFiles(storedFiles ? JSON.parse(storedFiles) : []);
+          setMindMaps(storedMindMaps ? JSON.parse(storedMindMaps) : []);
+          setLearningSessions(storedSessions ? JSON.parse(storedSessions) : []);
+          setActivityLogs(storedActivity ? JSON.parse(storedActivity) : []);
+        } else {
+          // New empty slate
+          setTechnologies([]);
+          setTopics([]);
+          setChecklistItems([]);
+          setNotes([]);
+          setFiles([]);
+          setMindMaps([]);
+          setLearningSessions([]);
+          setActivityLogs([]);
+          saveAll([], [], [], [], [], [], [], []);
+        }
+      } catch (e) {
+        console.error("Error loading data from localStorage", e);
+        setTechnologies([]);
+        setTopics([]);
+      } finally {
+        setIsLoaded(true);
+      }
     }
-  }, []);
+
+    loadData();
+  }, [supabase]);
 
   const saveAll = (
     tech: Technology[],
@@ -213,7 +256,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // Helper to log activity
   const logActivity = (entityType: any, entityId: string, actionType: any, title: string, metadata = {}) => {
     const newLog: ActivityLogItem = {
-      id: `act-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `act-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
       entity_type: entityType,
       entity_id: entityId,
@@ -225,21 +268,33 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const updated = [newLog, ...activityLogs.slice(0, 49)];
     setActivityLogs(updated);
     localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOG, JSON.stringify(updated));
+
+    if (supabase) {
+      supabase.from("activity_log").insert(newLog).catch(console.error);
+    }
   };
 
   // Automatically recalculate technology progress based on its topics
   const recalculateTechnologyProgress = (techId: string, currentTopics: Topic[]) => {
     const techTopics = currentTopics.filter((t) => t.technology_id === techId);
-    if (techTopics.length === 0) return;
-    const avgProgress = Math.round(
-      techTopics.reduce((acc, curr) => acc + (curr.progress || 0), 0) / techTopics.length
-    );
+    const avgProgress =
+      techTopics.length > 0
+        ? Math.round(techTopics.reduce((acc, curr) => acc + (curr.progress || 0), 0) / techTopics.length)
+        : 0;
 
     setTechnologies((prev) => {
       const updated = prev.map((t) => (t.id === techId ? { ...t, progress: avgProgress, updated_at: new Date().toISOString() } : t));
       localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
       return updated;
     });
+
+    if (supabase) {
+      supabase
+        .from("technologies")
+        .update({ progress: avgProgress, updated_at: new Date().toISOString() })
+        .eq("id", techId)
+        .catch(console.error);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -248,7 +303,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const addTechnology = (data: Partial<Technology>): Technology => {
     const name = data.name || "New Technology";
     const newTech: Technology = {
-      id: `tech-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `tech-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
       name,
       slug: slugify(name),
@@ -256,8 +311,8 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       icon: data.icon || "Code2",
       category: data.category || "General",
       color: data.color || "#6366f1",
-      progress: data.progress || 0,
-      is_favorite: data.is_favorite || false,
+      progress: 0,
+      is_favorite: Boolean(data.is_favorite),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -265,35 +320,64 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const updated = [newTech, ...technologies];
     setTechnologies(updated);
     localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
-    logActivity("technology", newTech.id, "created", `Added new technology '${newTech.name}'`);
+    logActivity("technology", newTech.id, "created", `Created technology "${newTech.name}"`);
+
+    if (supabase) {
+      supabase.from("technologies").insert(newTech).catch(console.error);
+    }
+
     return newTech;
   };
 
   const updateTechnology = (id: string, data: Partial<Technology>) => {
-    const updated = technologies.map((t) =>
-      t.id === id ? { ...t, ...data, slug: data.name ? slugify(data.name) : t.slug, updated_at: new Date().toISOString() } : t
-    );
-    setTechnologies(updated);
-    localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
-    const target = updated.find((t) => t.id === id);
-    if (target) logActivity("technology", id, "updated", `Updated technology '${target.name}'`);
+    setTechnologies((prev) => {
+      const updated = prev.map((t) => (t.id === id ? { ...t, ...data, updated_at: new Date().toISOString() } : t));
+      localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (supabase) {
+      supabase
+        .from("technologies")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
+    }
   };
 
   const deleteTechnology = (id: string) => {
-    const target = technologies.find((t) => t.id === id);
+    const techToDelete = technologies.find((t) => t.id === id);
     const updatedTech = technologies.filter((t) => t.id !== id);
-    const updatedTopics = topics.filter((t) => t.technology_id !== id);
+    const updatedTopics = topics.filter((top) => top.technology_id !== id);
+    const updatedNotes = notes.filter((n) => n.technology_id !== id);
+    const updatedMindMaps = mindMaps.filter((m) => m.technology_id !== id);
+    const updatedSessions = learningSessions.filter((s) => s.technology_id !== id);
+
     setTechnologies(updatedTech);
     setTopics(updatedTopics);
+    setNotes(updatedNotes);
+    setMindMaps(updatedMindMaps);
+    setLearningSessions(updatedSessions);
+
     localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updatedTech));
     localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updatedTopics));
-    if (target) logActivity("technology", id, "deleted", `Deleted technology '${target.name}'`);
+    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updatedNotes));
+    localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updatedMindMaps));
+    localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updatedSessions));
+
+    if (techToDelete) {
+      logActivity("technology", id, "deleted", `Deleted technology "${techToDelete.name}"`);
+    }
+
+    if (supabase) {
+      supabase.from("technologies").delete().eq("id", id).catch(console.error);
+    }
   };
 
   const toggleFavoriteTechnology = (id: string) => {
-    const updated = technologies.map((t) => (t.id === id ? { ...t, is_favorite: !t.is_favorite } : t));
-    setTechnologies(updated);
-    localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
+    const item = technologies.find((t) => t.id === id);
+    if (!item) return;
+    updateTechnology(id, { is_favorite: !item.is_favorite });
   };
 
   // --------------------------------------------------------------------------
@@ -301,184 +385,177 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addTopic = (data: Partial<Topic>): Topic => {
     const name = data.name || "New Topic";
-    const status: TopicStatus = data.status || "Not Started";
-    const progress = status === "Completed" ? 100 : data.progress || 0;
-
     const newTopic: Topic = {
-      id: `topic-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `topic-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id || technologies[0]?.id || "",
-      parent_topic_id: data.parent_topic_id || null,
+      technology_id: data.technology_id!,
+      parent_topic_id: data.parent_topic_id || undefined,
       name,
       slug: slugify(name),
       description: data.description || "",
-      status,
-      progress,
-      priority: data.priority || "Medium",
-      sort_order: (topics.filter((t) => t.technology_id === data.technology_id).length || 0) + 1,
-      is_favorite: data.is_favorite || false,
+      status: (data.status as TopicStatus) || "Not Started",
+      progress: data.progress || 0,
+      priority: (data.priority as TopicPriority) || "Medium",
+      sort_order: data.sort_order || topics.length,
+      is_favorite: Boolean(data.is_favorite),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      last_studied_at: status === "Learning" ? new Date().toISOString() : null,
-      completed_at: status === "Completed" ? new Date().toISOString() : null,
     };
 
     const updated = [...topics, newTopic];
     setTopics(updated);
     localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updated));
     recalculateTechnologyProgress(newTopic.technology_id, updated);
-    logActivity("topic", newTopic.id, "created", `Added topic '${newTopic.name}'`);
+    logActivity("topic", newTopic.id, "created", `Created topic "${newTopic.name}"`);
+
+    if (supabase) {
+      supabase.from("topics").insert(newTopic).catch(console.error);
+    }
+
     return newTopic;
   };
 
   const updateTopic = (id: string, data: Partial<Topic>) => {
-    let completedTrigger = false;
-    const updated = topics.map((t) => {
-      if (t.id !== id) return t;
+    let techIdToUpdate: string | undefined;
 
-      let newStatus = data.status || t.status;
-      let newProgress = data.progress !== undefined ? data.progress : t.progress;
+    setTopics((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id === id) {
+          techIdToUpdate = t.technology_id;
+          const next = { ...t, ...data, updated_at: new Date().toISOString() };
+          if (data.progress === 100 && t.progress !== 100) {
+            next.status = "Completed";
+            next.completed_at = new Date().toISOString();
+            confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+            logActivity("topic", id, "completed", `Mastered topic "${t.name}"! 🎉`);
+          }
+          return next;
+        }
+        return t;
+      });
 
-      if (newProgress === 100 && t.progress < 100) {
-        newStatus = "Completed";
-        completedTrigger = true;
-      } else if (newProgress < 100 && newStatus === "Completed" && data.progress !== undefined) {
-        newStatus = "Learning";
+      localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updated));
+      if (techIdToUpdate) {
+        recalculateTechnologyProgress(techIdToUpdate, updated);
       }
-
-      if (data.status === "Completed" && t.status !== "Completed") {
-        newProgress = 100;
-        completedTrigger = true;
-      }
-
-      return {
-        ...t,
-        ...data,
-        status: newStatus,
-        progress: newProgress,
-        slug: data.name ? slugify(data.name) : t.slug,
-        completed_at: newStatus === "Completed" ? t.completed_at || new Date().toISOString() : null,
-        last_studied_at: newStatus === "Learning" ? new Date().toISOString() : t.last_studied_at,
-        updated_at: new Date().toISOString(),
-      };
+      return updated;
     });
 
-    setTopics(updated);
-    localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updated));
-
-    const target = updated.find((t) => t.id === id);
-    if (target) {
-      recalculateTechnologyProgress(target.technology_id, updated);
-      if (completedTrigger) {
-        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
-        logActivity("topic", id, "completed", `Completed topic '${target.name}'! 🎉`);
-      } else {
-        logActivity("topic", id, "updated", `Updated topic '${target.name}'`);
-      }
+    if (supabase) {
+      supabase
+        .from("topics")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
     }
   };
 
   const updateTopicProgress = (id: string, progress: number) => {
-    updateTopic(id, { progress });
+    const clamped = Math.max(0, Math.min(100, progress));
+    const nextStatus: TopicStatus = clamped === 100 ? "Completed" : clamped > 0 ? "Learning" : "Not Started";
+    updateTopic(id, { progress: clamped, status: nextStatus });
   };
 
   const deleteTopic = (id: string) => {
-    const target = topics.find((t) => t.id === id);
-    const techId = target?.technology_id;
+    const topicToDelete = topics.find((t) => t.id === id);
+    const techId = topicToDelete?.technology_id;
+    const updatedTopics = topics.filter((t) => t.id !== id && t.parent_topic_id !== id);
 
-    // Delete topic and any child subtopics recursively
-    const childIds = new Set<string>();
-    const findChildren = (parentId: string) => {
-      childIds.add(parentId);
-      topics.filter((t) => t.parent_topic_id === parentId).forEach((t) => findChildren(t.id));
-    };
-    findChildren(id);
-
-    const updatedTopics = topics.filter((t) => !childIds.has(t.id));
-    const updatedChecklists = checklistItems.filter((c) => !childIds.has(c.topic_id));
     setTopics(updatedTopics);
-    setChecklistItems(updatedChecklists);
     localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updatedTopics));
-    localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updatedChecklists));
-
     if (techId) recalculateTechnologyProgress(techId, updatedTopics);
-    if (target) logActivity("topic", id, "deleted", `Deleted topic '${target.name}'`);
+
+    if (topicToDelete) {
+      logActivity("topic", id, "deleted", `Deleted topic "${topicToDelete.name}"`);
+    }
+
+    if (supabase) {
+      supabase.from("topics").delete().eq("id", id).catch(console.error);
+    }
   };
 
   const toggleFavoriteTopic = (id: string) => {
-    const updated = topics.map((t) => (t.id === id ? { ...t, is_favorite: !t.is_favorite } : t));
-    setTopics(updated);
-    localStorage.setItem(STORAGE_KEYS.TOPICS, JSON.stringify(updated));
+    const topic = topics.find((t) => t.id === id);
+    if (!topic) return;
+    updateTopic(id, { is_favorite: !topic.is_favorite });
   };
 
   const getTopicTree = (technologyId: string): Topic[] => {
     const techTopics = topics.filter((t) => t.technology_id === technologyId);
-
-    const buildTree = (parentId: string | null): Topic[] => {
+    const buildTree = (parentId?: string): Topic[] => {
       return techTopics
-        .filter((t) => t.parent_topic_id === parentId)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((topic) => ({
-          ...topic,
-          subtopics: buildTree(topic.id),
+        .filter((t) => (parentId ? t.parent_topic_id === parentId : !t.parent_topic_id))
+        .map((t) => ({
+          ...t,
+          subtopics: buildTree(t.id),
         }));
     };
-
-    return buildTree(null);
+    return buildTree(undefined);
   };
 
-  const getTopicById = (id: string) => {
-    const topic = topics.find((t) => t.id === id);
-    if (!topic) return undefined;
-    const tech = technologies.find((t) => t.id === topic.technology_id);
-    const topicChecklist = checklistItems.filter((c) => c.topic_id === topic.id);
-    return {
-      ...topic,
-      technology_name: tech?.name,
-      technology_color: tech?.color,
-      checklist_total: topicChecklist.length,
-      checklist_completed: topicChecklist.filter((c) => c.is_completed).length,
-    };
-  };
-
-  const getTechnologyById = (id: string) => {
-    return technologies.find((t) => t.id === id || t.slug === id);
-  };
+  const getTopicById = (id: string) => topics.find((t) => t.id === id);
+  const getTechnologyById = (id: string) => technologies.find((t) => t.id === id);
 
   // --------------------------------------------------------------------------
   // Checklist Actions
   // --------------------------------------------------------------------------
   const addChecklistItem = (topicId: string, title: string): ChecklistItem => {
-    const currentItems = checklistItems.filter((c) => c.topic_id === topicId);
     const newItem: ChecklistItem = {
-      id: `chk-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `chk-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
       topic_id: topicId,
       title,
       is_completed: false,
-      sort_order: currentItems.length + 1,
+      sort_order: checklistItems.filter((c) => c.topic_id === topicId).length,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     const updated = [...checklistItems, newItem];
     setChecklistItems(updated);
     localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
+
+    if (supabase) {
+      supabase.from("checklist_items").insert(newItem).catch(console.error);
+    }
+
     return newItem;
   };
 
   const toggleChecklistItem = (id: string) => {
-    const targetItem = checklistItems.find((c) => c.id === id);
-    if (!targetItem) return;
+    let targetTopicId: string | undefined;
 
-    const updated = checklistItems.map((c) => (c.id === id ? { ...c, is_completed: !c.is_completed, updated_at: new Date().toISOString() } : c));
-    setChecklistItems(updated);
-    localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
+    setChecklistItems((prev) => {
+      const updated = prev.map((item) => {
+        if (item.id === id) {
+          targetTopicId = item.topic_id;
+          return { ...item, is_completed: !item.is_completed, updated_at: new Date().toISOString() };
+        }
+        return item;
+      });
 
-    // Optionally update topic progress automatically based on checklist completion ratio
-    const topicItems = updated.filter((c) => c.topic_id === targetItem.topic_id);
-    if (topicItems.length > 0) {
-      const completedRatio = Math.round((topicItems.filter((c) => c.is_completed).length / topicItems.length) * 100);
-      updateTopic(targetItem.topic_id, { progress: completedRatio });
+      localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
+
+      // Calculate progress from checklist items
+      if (targetTopicId) {
+        const topicItems = updated.filter((i) => i.topic_id === targetTopicId);
+        if (topicItems.length > 0) {
+          const completed = topicItems.filter((i) => i.is_completed).length;
+          const pct = Math.round((completed / topicItems.length) * 100);
+          updateTopicProgress(targetTopicId, pct);
+        }
+      }
+
+      return updated;
+    });
+
+    const curr = checklistItems.find((c) => c.id === id);
+    if (curr && supabase) {
+      supabase
+        .from("checklist_items")
+        .update({ is_completed: !curr.is_completed, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
     }
   };
 
@@ -486,6 +563,10 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const updated = checklistItems.filter((c) => c.id !== id);
     setChecklistItems(updated);
     localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
+
+    if (supabase) {
+      supabase.from("checklist_items").delete().eq("id", id).catch(console.error);
+    }
   };
 
   const getTopicChecklist = (topicId: string) => {
@@ -497,94 +578,126 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addNote = (data: Partial<Note>): Note => {
     const newNote: Note = {
-      id: `note-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `note-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id || null,
-      topic_id: data.topic_id || null,
+      technology_id: data.technology_id,
+      topic_id: data.topic_id,
       title: data.title || "Untitled Note",
-      content_html: data.content_html || "",
+      content_html: data.content_html || "<p></p>",
       content_json: data.content_json || {},
       tags: data.tags || [],
-      is_favorite: data.is_favorite || false,
+      is_favorite: Boolean(data.is_favorite),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     const updated = [newNote, ...notes];
     setNotes(updated);
     localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
-    logActivity("note", newNote.id, "created", `Created note '${newNote.title}'`);
+    logActivity("note", newNote.id, "created", `Created note "${newNote.title}"`);
+
+    if (supabase) {
+      supabase.from("notes").insert(newNote).catch(console.error);
+    }
+
     return newNote;
   };
 
   const updateNote = (id: string, data: Partial<Note>) => {
-    const updated = notes.map((n) => (n.id === id ? { ...n, ...data, updated_at: new Date().toISOString() } : n));
-    setNotes(updated);
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
+    setNotes((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, ...data, updated_at: new Date().toISOString() } : n));
+      localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (supabase) {
+      supabase
+        .from("notes")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
+    }
   };
 
   const deleteNote = (id: string) => {
-    const target = notes.find((n) => n.id === id);
+    const noteToDelete = notes.find((n) => n.id === id);
     const updated = notes.filter((n) => n.id !== id);
     setNotes(updated);
     localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
-    if (target) logActivity("note", id, "deleted", `Deleted note '${target.title}'`);
+
+    if (noteToDelete) {
+      logActivity("note", id, "deleted", `Deleted note "${noteToDelete.title}"`);
+    }
+
+    if (supabase) {
+      supabase.from("notes").delete().eq("id", id).catch(console.error);
+    }
   };
 
   const toggleFavoriteNote = (id: string) => {
-    const updated = notes.map((n) => (n.id === id ? { ...n, is_favorite: !n.is_favorite } : n));
-    setNotes(updated);
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
+    const note = notes.find((n) => n.id === id);
+    if (!note) return;
+    updateNote(id, { is_favorite: !note.is_favorite });
   };
 
-  const getNoteById = (id: string) => {
-    const note = notes.find((n) => n.id === id);
-    if (!note) return undefined;
-    const tech = technologies.find((t) => t.id === note.technology_id);
-    const topic = topics.find((t) => t.id === note.topic_id);
-    return {
-      ...note,
-      technology_name: tech?.name,
-      topic_name: topic?.name,
-    };
-  };
+  const getNoteById = (id: string) => notes.find((n) => n.id === id);
 
   // --------------------------------------------------------------------------
   // Files Actions
   // --------------------------------------------------------------------------
   const addFile = (data: Partial<FileItem>): FileItem => {
     const newFile: FileItem = {
-      id: `file-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `file-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id || null,
-      topic_id: data.topic_id || null,
-      filename: data.filename || "file.dat",
-      file_type: data.file_type || "application/octet-stream",
-      file_size: data.file_size || 1024,
-      storage_path: data.storage_path || `uploads/${data.filename}`,
-      public_url: data.public_url,
-      is_handwritten: data.is_handwritten || false,
+      technology_id: data.technology_id,
+      topic_id: data.topic_id,
+      name: data.name || "Uploaded File",
+      file_type: data.file_type || "image",
+      storage_path: data.storage_path || "",
+      file_size: data.file_size || 0,
+      mime_type: data.mime_type || "image/png",
+      thumbnail_url: data.thumbnail_url,
+      extracted_text: data.extracted_text,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     const updated = [newFile, ...files];
     setFiles(updated);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
-    logActivity("file", newFile.id, "uploaded", `Uploaded ${newFile.is_handwritten ? "handwritten note" : "file"} '${newFile.filename}'`);
+    logActivity("file", newFile.id, "created", `Uploaded document "${newFile.name}"`);
+
+    if (supabase) {
+      supabase.from("files").insert(newFile).catch(console.error);
+    }
+
     return newFile;
   };
 
   const updateFile = (id: string, data: Partial<FileItem>) => {
-    const updated = files.map((f) => (f.id === id ? { ...f, ...data, updated_at: new Date().toISOString() } : f));
-    setFiles(updated);
-    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
+    setFiles((prev) => {
+      const updated = prev.map((f) => (f.id === id ? { ...f, ...data, updated_at: new Date().toISOString() } : f));
+      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (supabase) {
+      supabase
+        .from("files")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
+    }
   };
 
   const deleteFile = (id: string) => {
-    const target = files.find((f) => f.id === id);
     const updated = files.filter((f) => f.id !== id);
     setFiles(updated);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
-    if (target) logActivity("file", id, "deleted", `Deleted file '${target.filename}'`);
+
+    if (supabase) {
+      supabase.from("files").delete().eq("id", id).catch(console.error);
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -592,94 +705,121 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addMindMap = (data: Partial<MindMap>): MindMap => {
     const newMap: MindMap = {
-      id: `map-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `map-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id || null,
-      topic_id: data.topic_id || null,
+      technology_id: data.technology_id,
+      topic_id: data.topic_id,
       title: data.title || "Untitled Mind Map",
       description: data.description || "",
-      nodes_json: data.nodes_json || [
-        {
-          id: "node-root",
-          type: "custom",
-          position: { x: 300, y: 150 },
-          data: { label: data.title || "Central Idea", isRoot: true, color: "#6366f1" },
-        },
-      ],
+      nodes_json: data.nodes_json || [],
       edges_json: data.edges_json || [],
-      viewport_json: data.viewport_json || { x: 0, y: 0, zoom: 1 },
-      is_favorite: data.is_favorite || false,
+      thumbnail_url: data.thumbnail_url,
+      is_favorite: Boolean(data.is_favorite),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     const updated = [newMap, ...mindMaps];
     setMindMaps(updated);
     localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
-    logActivity("mind_map", newMap.id, "created", `Created mind map '${newMap.title}'`);
+    logActivity("mind_map", newMap.id, "created", `Created mind map "${newMap.title}"`);
+
+    if (supabase) {
+      supabase.from("mind_maps").insert(newMap).catch(console.error);
+    }
+
     return newMap;
   };
 
   const updateMindMap = (id: string, data: Partial<MindMap>) => {
-    const updated = mindMaps.map((m) => (m.id === id ? { ...m, ...data, updated_at: new Date().toISOString() } : m));
-    setMindMaps(updated);
-    localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
+    setMindMaps((prev) => {
+      const updated = prev.map((m) => (m.id === id ? { ...m, ...data, updated_at: new Date().toISOString() } : m));
+      localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
+      return updated;
+    });
+
+    if (supabase) {
+      supabase
+        .from("mind_maps")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .catch(console.error);
+    }
   };
 
   const deleteMindMap = (id: string) => {
-    const target = mindMaps.find((m) => m.id === id);
+    const mapToDelete = mindMaps.find((m) => m.id === id);
     const updated = mindMaps.filter((m) => m.id !== id);
     setMindMaps(updated);
     localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
-    if (target) logActivity("mind_map", id, "deleted", `Deleted mind map '${target.title}'`);
+
+    if (mapToDelete) {
+      logActivity("mind_map", id, "deleted", `Deleted mind map "${mapToDelete.title}"`);
+    }
+
+    if (supabase) {
+      supabase.from("mind_maps").delete().eq("id", id).catch(console.error);
+    }
   };
 
   const toggleFavoriteMindMap = (id: string) => {
-    const updated = mindMaps.map((m) => (m.id === id ? { ...m, is_favorite: !m.is_favorite } : m));
-    setMindMaps(updated);
-    localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
+    const map = mindMaps.find((m) => m.id === id);
+    if (!map) return;
+    updateMindMap(id, { is_favorite: !map.is_favorite });
   };
 
-  const getMindMapById = (id: string) => {
-    const map = mindMaps.find((m) => m.id === id);
-    if (!map) return undefined;
-    const tech = technologies.find((t) => t.id === map.technology_id);
-    const topic = topics.find((t) => t.id === map.topic_id);
-    return {
-      ...map,
-      technology_name: tech?.name,
-      topic_name: topic?.name,
-    };
-  };
+  const getMindMapById = (id: string) => mindMaps.find((m) => m.id === id);
 
   const createMindMapFromTechnology = (techId: string): MindMap => {
     const tech = technologies.find((t) => t.id === techId);
-    const techTopics = topics.filter((t) => t.technology_id === techId && !t.parent_topic_id);
+    const techTopics = topics.filter((t) => t.technology_id === techId);
 
     const rootNode = {
-      id: "node-tech-root",
+      id: "root",
       type: "custom",
-      position: { x: 350, y: 50 },
-      data: { label: tech?.name || "Technology", isRoot: true, color: tech?.color || "#6366f1", description: tech?.description },
+      data: {
+        label: tech ? tech.name : "Technology Roadmap",
+        description: tech?.description || "Architecture & Learning Tree",
+        status: "Learning",
+        color: tech?.color || "#6366f1",
+      },
+      position: { x: 300, y: 150 },
     };
 
-    const childNodes = techTopics.map((top, idx) => ({
-      id: `node-${top.id}`,
-      type: "custom",
-      position: { x: 100 + (idx % 3) * 250, y: 200 + Math.floor(idx / 3) * 120 },
-      data: { label: top.name, color: tech?.color || "#6366f1", description: top.description, status: top.status },
-    }));
+    const childNodes: any[] = [];
+    const edges: any[] = [];
 
-    const edges = techTopics.map((top) => ({
-      id: `e-root-${top.id}`,
-      source: "node-tech-root",
-      target: `node-${top.id}`,
-      animated: true,
-    }));
+    techTopics.slice(0, 6).forEach((topic, idx) => {
+      const angle = (idx / Math.min(techTopics.length, 6)) * 2 * Math.PI;
+      const x = 300 + Math.cos(angle) * 260;
+      const y = 150 + Math.sin(angle) * 180;
+      const nodeId = `node-${topic.id}`;
+
+      childNodes.push({
+        id: nodeId,
+        type: "custom",
+        data: {
+          label: topic.name,
+          description: topic.description || "",
+          status: topic.status,
+          color: topic.status === "Completed" ? "#10b981" : "#3b82f6",
+        },
+        position: { x, y },
+      });
+
+      edges.push({
+        id: `edge-root-${nodeId}`,
+        source: "root",
+        target: nodeId,
+        animated: topic.status === "Learning",
+        style: { stroke: "#6366f1", strokeWidth: 2 },
+      });
+    });
 
     return addMindMap({
       technology_id: techId,
-      title: `${tech?.name || "Technology"} Overview Roadmap`,
-      description: `Interactive mind map structure automatically generated from ${tech?.name} curriculum.`,
+      title: `${tech?.name || "Tech"} Visual Roadmap`,
+      description: `Auto-generated mind map for ${tech?.name}`,
       nodes_json: [rootNode, ...childNodes],
       edges_json: edges,
     });
@@ -687,44 +827,53 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
 
   const createMindMapFromTopic = (topicId: string): MindMap => {
     const topic = topics.find((t) => t.id === topicId);
-    const tech = technologies.find((t) => t.id === topic?.technology_id);
-    const subtopics = topics.filter((t) => t.parent_topic_id === topicId);
-    const chkItems = checklistItems.filter((c) => c.topic_id === topicId);
+    const checklist = checklistItems.filter((c) => c.topic_id === topicId);
 
     const rootNode = {
-      id: "node-topic-root",
+      id: "root",
       type: "custom",
-      position: { x: 350, y: 50 },
-      data: { label: topic?.name || "Topic", isRoot: true, color: tech?.color || "#6366f1", description: topic?.description },
+      data: {
+        label: topic?.name || "Topic Deep Dive",
+        description: topic?.description || "Milestones & Core Concepts",
+        status: topic?.status || "Learning",
+        color: "#6366f1",
+      },
+      position: { x: 300, y: 150 },
     };
 
-    const branchNodes = subtopics.length > 0
-      ? subtopics.map((sub, idx) => ({
-          id: `node-${sub.id}`,
-          type: "custom",
-          position: { x: 120 + idx * 240, y: 200 },
-          data: { label: sub.name, color: tech?.color || "#6366f1", description: sub.description },
-        }))
-      : chkItems.slice(0, 5).map((chk, idx) => ({
-          id: `node-chk-${chk.id}`,
-          type: "custom",
-          position: { x: 100 + (idx % 3) * 260, y: 200 + Math.floor(idx / 3) * 120 },
-          data: { label: chk.title, color: tech?.color || "#6366f1", description: chk.is_completed ? "Completed" : "Pending" },
-        }));
+    const childNodes: any[] = [];
+    const edges: any[] = [];
 
-    const edges = branchNodes.map((b) => ({
-      id: `e-${rootNode.id}-${b.id}`,
-      source: rootNode.id,
-      target: b.id,
-      animated: true,
-    }));
+    checklist.forEach((item, idx) => {
+      const y = 50 + idx * 90;
+      const nodeId = `chk-${item.id}`;
+
+      childNodes.push({
+        id: nodeId,
+        type: "custom",
+        data: {
+          label: item.title,
+          description: item.is_completed ? "Completed Milestone" : "Pending Action",
+          status: item.is_completed ? "Completed" : "Learning",
+          color: item.is_completed ? "#10b981" : "#f59e0b",
+        },
+        position: { x: 600, y },
+      });
+
+      edges.push({
+        id: `edge-${nodeId}`,
+        source: "root",
+        target: nodeId,
+        style: { stroke: item.is_completed ? "#10b981" : "#94a3b8" },
+      });
+    });
 
     return addMindMap({
-      technology_id: topic?.technology_id,
       topic_id: topicId,
-      title: `${topic?.name || "Topic"} Mind Map`,
-      description: `Exploratory graph for ${topic?.name}.`,
-      nodes_json: [rootNode, ...branchNodes],
+      technology_id: topic?.technology_id,
+      title: `${topic?.name || "Topic"} Concept Map`,
+      description: `Concept and checklist architecture for ${topic?.name}`,
+      nodes_json: [rootNode, ...childNodes],
       edges_json: edges,
     });
   };
@@ -734,26 +883,27 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // --------------------------------------------------------------------------
   const addLearningSession = (data: Partial<LearningSession>): LearningSession => {
     const newSession: LearningSession = {
-      id: `sess-${Date.now()}`,
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id || null,
-      topic_id: data.topic_id || null,
-      date: data.date || new Date().toISOString().split("T")[0],
+      technology_id: data.technology_id!,
+      topic_id: data.topic_id,
       duration_minutes: data.duration_minutes || 30,
-      title: data.title || "Study Session",
-      description: data.description || "",
+      session_date: data.session_date || new Date().toISOString().split("T")[0],
+      notes: data.notes,
       created_at: new Date().toISOString(),
     };
+
     const updated = [newSession, ...learningSessions];
     setLearningSessions(updated);
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updated));
 
-    // If topic provided, update its last studied timestamp
-    if (newSession.topic_id) {
-      updateTopic(newSession.topic_id, { last_studied_at: new Date().toISOString() });
+    const tech = technologies.find((t) => t.id === newSession.technology_id);
+    logActivity("session", newSession.id, "created", `Logged ${newSession.duration_minutes}m study on ${tech?.name || "Technology"}`);
+
+    if (supabase) {
+      supabase.from("learning_sessions").insert(newSession).catch(console.error);
     }
 
-    logActivity("session", newSession.id, "created", `Logged ${Math.floor(newSession.duration_minutes / 60)}h ${newSession.duration_minutes % 60}m study on '${newSession.title}'`);
     return newSession;
   };
 
@@ -761,78 +911,76 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const updated = learningSessions.filter((s) => s.id !== id);
     setLearningSessions(updated);
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updated));
+
+    if (supabase) {
+      supabase.from("learning_sessions").delete().eq("id", id).catch(console.error);
+    }
   };
 
   // --------------------------------------------------------------------------
-  // Global Search
+  // Search & Global Helpers
   // --------------------------------------------------------------------------
   const searchAll = (query: string): SearchResult[] => {
-    if (!query || query.trim() === "") return [];
     const q = query.toLowerCase().trim();
+    if (!q) return [];
+
     const results: SearchResult[] = [];
 
-    technologies.forEach((tech) => {
-      if (tech.name.toLowerCase().includes(q) || tech.description.toLowerCase().includes(q)) {
+    technologies
+      .filter((t) => t.name.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q))
+      .forEach((t) => {
         results.push({
-          id: tech.id,
+          id: t.id,
           type: "technology",
-          title: tech.name,
-          subtitle: `${tech.category} · ${tech.progress}% complete`,
-          url: `/technologies/${tech.id}`,
-          color: tech.color,
+          title: t.name,
+          subtitle: `${t.category} • ${t.progress}% mastery`,
+          url: `/technologies/${t.id}`,
+          color: t.color,
         });
-      }
-    });
+      });
 
-    topics.forEach((topic) => {
-      if (topic.name.toLowerCase().includes(q) || topic.description.toLowerCase().includes(q)) {
-        const tech = technologies.find((t) => t.id === topic.technology_id);
+    topics
+      .filter((top) => top.name.toLowerCase().includes(q) || top.description?.toLowerCase().includes(q))
+      .forEach((top) => {
+        const parentTech = technologies.find((t) => t.id === top.technology_id);
         results.push({
-          id: topic.id,
+          id: top.id,
           type: "topic",
-          title: topic.name,
-          subtitle: `${tech?.name || "Topic"} · Status: ${topic.status} (${topic.progress}%)`,
-          url: `/topics/${topic.id}`,
-          color: tech?.color,
+          title: top.name,
+          subtitle: `${parentTech?.name || "Topic"} • ${top.status}`,
+          url: `/topics/${top.id}`,
+          color: parentTech?.color,
         });
-      }
-    });
+      });
 
-    notes.forEach((note) => {
-      if (
-        note.title.toLowerCase().includes(q) ||
-        note.content_html.toLowerCase().includes(q) ||
-        note.tags.some((t) => t.toLowerCase().includes(q))
-      ) {
+    notes
+      .filter((n) => n.title.toLowerCase().includes(q) || n.tags.some((tag) => tag.toLowerCase().includes(q)))
+      .forEach((n) => {
         results.push({
-          id: note.id,
+          id: n.id,
           type: "note",
-          title: note.title,
-          subtitle: `Tags: ${note.tags.join(", ") || "none"}`,
-          url: `/notes/${note.id}`,
+          title: n.title,
+          subtitle: `Tags: ${n.tags.join(", ") || "none"}`,
+          url: `/notes/${n.id}`,
         });
-      }
-    });
+      });
 
-    mindMaps.forEach((map) => {
-      if (map.title.toLowerCase().includes(q) || (map.description && map.description.toLowerCase().includes(q))) {
+    mindMaps
+      .filter((m) => m.title.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q))
+      .forEach((m) => {
         results.push({
-          id: map.id,
+          id: m.id,
           type: "mind_map",
-          title: map.title,
-          subtitle: `${map.nodes_json.length} nodes · Mind Map`,
-          url: `/mind-maps/${map.id}`,
+          title: m.title,
+          subtitle: "Interactive Mind Map",
+          url: `/mind-maps/${m.id}`,
         });
-      }
-    });
+      });
 
-    return results.slice(0, 15);
+    return results;
   };
 
-  // --------------------------------------------------------------------------
-  // Seed & Reset Data
-  // --------------------------------------------------------------------------
-  const resetToSampleData = () => {
+  const resetToSampleData = async () => {
     setTechnologies(INITIAL_TECHNOLOGIES);
     setTopics(INITIAL_TOPICS);
     setChecklistItems(INITIAL_CHECKLIST_ITEMS);
@@ -841,6 +989,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setMindMaps(INITIAL_MIND_MAPS);
     setLearningSessions(INITIAL_LEARNING_SESSIONS);
     setActivityLogs(INITIAL_ACTIVITY_LOG);
+
     saveAll(
       INITIAL_TECHNOLOGIES,
       INITIAL_TOPICS,
@@ -851,9 +1000,21 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       INITIAL_LEARNING_SESSIONS,
       INITIAL_ACTIVITY_LOG
     );
+
+    if (supabase) {
+      try {
+        await supabase.from("technologies").upsert(INITIAL_TECHNOLOGIES);
+        await supabase.from("topics").upsert(INITIAL_TOPICS);
+        await supabase.from("checklist_items").upsert(INITIAL_CHECKLIST_ITEMS);
+        await supabase.from("notes").upsert(INITIAL_NOTES);
+        await supabase.from("mind_maps").upsert(INITIAL_MIND_MAPS);
+      } catch (err) {
+        console.error("Error seeding sample data to Supabase:", err);
+      }
+    }
   };
 
-  const clearAllData = () => {
+  const clearAllData = async () => {
     setTechnologies([]);
     setTopics([]);
     setChecklistItems([]);
@@ -862,94 +1023,100 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setMindMaps([]);
     setLearningSessions([]);
     setActivityLogs([]);
+
     saveAll([], [], [], [], [], [], [], []);
+
+    if (supabase) {
+      try {
+        await supabase.from("activity_log").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("learning_sessions").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("mind_maps").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("files").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("notes").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("checklist_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("topics").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+        await supabase.from("technologies").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      } catch (err) {
+        console.error("Error clearing Supabase data:", err);
+      }
+    }
   };
 
   const exportDataBackup = (): string => {
     const backup = {
-      technologies,
-      topics,
-      checklistItems,
-      notes,
-      files,
-      mindMaps,
-      learningSessions,
-      activityLogs,
-      exportedAt: new Date().toISOString(),
+      version: "1.0",
+      exported_at: new Date().toISOString(),
+      data: {
+        technologies,
+        topics,
+        checklistItems,
+        notes,
+        files,
+        mindMaps,
+        learningSessions,
+        activityLogs,
+      },
     };
     return JSON.stringify(backup, null, 2);
   };
 
   const importDataBackup = (jsonStr: string): boolean => {
     try {
-      const data = JSON.parse(jsonStr);
-      if (data.technologies && Array.isArray(data.technologies)) {
-        setTechnologies(data.technologies);
-        setTopics(data.topics || []);
-        setChecklistItems(data.checklistItems || []);
-        setNotes(data.notes || []);
-        setFiles(data.files || []);
-        setMindMaps(data.mindMaps || []);
-        setLearningSessions(data.learningSessions || []);
-        setActivityLogs(data.activityLogs || []);
-        saveAll(
-          data.technologies,
-          data.topics || [],
-          data.checklistItems || [],
-          data.notes || [],
-          data.files || [],
-          data.mindMaps || [],
-          data.learningSessions || [],
-          data.activityLogs || []
-        );
-        return true;
-      }
-      return false;
+      const parsed = JSON.parse(jsonStr);
+      if (!parsed.data) return false;
+
+      const d = parsed.data;
+      setTechnologies(d.technologies || []);
+      setTopics(d.topics || []);
+      setChecklistItems(d.checklistItems || []);
+      setNotes(d.notes || []);
+      setFiles(d.files || []);
+      setMindMaps(d.mindMaps || []);
+      setLearningSessions(d.learningSessions || []);
+      setActivityLogs(d.activityLogs || []);
+
+      saveAll(
+        d.technologies || [],
+        d.topics || [],
+        d.checklistItems || [],
+        d.notes || [],
+        d.files || [],
+        d.mindMaps || [],
+        d.learningSessions || [],
+        d.activityLogs || []
+      );
+      return true;
     } catch {
       return false;
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Computed Stats
-  // --------------------------------------------------------------------------
+  // Compute aggregated stats
   const stats: DashboardStats = useMemo(() => {
-    const totalTechnologies = technologies.length;
+    const totalTech = technologies.length;
     const totalTopics = topics.length;
     const completedTopics = topics.filter((t) => t.status === "Completed" || t.progress === 100).length;
-    const inProgressTopics = topics.filter((t) => t.status === "Learning" && t.progress < 100).length;
+    const inProgressTopics = topics.filter((t) => t.status === "Learning" && (t.progress || 0) < 100).length;
+    const notStartedTopics = topics.filter((t) => t.status === "Not Started").length;
     const totalNotes = notes.length;
-    const totalLearningMinutes = learningSessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
     const totalMindMaps = mindMaps.length;
     const totalFiles = files.length;
-
-    // Calculate streak days
-    const sessionDates = new Set(learningSessions.map((s) => s.date));
-    let streak = 0;
-    const today = new Date();
-    for (let i = 0; i < 365; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
-      if (sessionDates.has(dateStr)) {
-        streak++;
-      } else if (i > 0) {
-        break; // Streak broken
-      }
-    }
+    const totalMinutes = learningSessions.reduce((acc, curr) => acc + curr.duration_minutes, 0);
+    const overallProgress = totalTopics > 0 ? Math.round((completedTopics / totalTopics) * 100) : 0;
 
     return {
-      totalTechnologies,
+      totalTechnologies: totalTech,
       totalTopics,
       completedTopics,
       inProgressTopics,
+      notStartedTopics,
       totalNotes,
-      totalLearningMinutes,
       totalMindMaps,
       totalFiles,
-      streakDays: streak,
+      totalMinutesStudied: totalMinutes,
+      overallProgress,
     };
-  }, [technologies, topics, notes, learningSessions, mindMaps, files]);
+  }, [technologies, topics, notes, mindMaps, files, learningSessions]);
 
   return (
     <LearningStoreContext.Provider
