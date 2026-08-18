@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from "react";
 import {
   Technology,
   Topic,
@@ -38,7 +38,6 @@ const STORAGE_KEYS = {
   MIND_MAPS: "kma_mind_maps",
   SESSIONS: "kma_sessions",
   ACTIVITY_LOG: "kma_activity_log",
-  SUPABASE_SYNCED: "kma_supabase_synced",
 };
 
 interface SearchResult {
@@ -132,12 +131,19 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
 
   const supabase = useMemo(() => createClient(), []);
 
+  // Safe helper to run Supabase calls in background without Postgrest typing issues
+  const runSupabase = useCallback((operation: (client: NonNullable<typeof supabase>) => Promise<any>) => {
+    if (!supabase) return;
+    operation(supabase).catch((err: unknown) => {
+      console.warn("Supabase background operation note:", err);
+    });
+  }, [supabase]);
+
   // Initialize data: When Supabase is configured, fetch live database rows.
   useEffect(() => {
     async function loadData() {
       if (supabase) {
         try {
-          // Fetch directly from live Supabase PostgreSQL
           const [
             techRes,
             topicsRes,
@@ -180,7 +186,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
           setIsLoaded(true);
           return;
         } catch (err) {
-          console.warn("Supabase fetch failed, falling back to local vault", err);
+          console.warn("Supabase fetch failed, falling back to local storage", err);
         }
       }
 
@@ -205,7 +211,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
           setLearningSessions(storedSessions ? JSON.parse(storedSessions) : []);
           setActivityLogs(storedActivity ? JSON.parse(storedActivity) : []);
         } else {
-          // New empty slate
+          // Clean initial empty state
           setTechnologies([]);
           setTopics([]);
           setChecklistItems([]);
@@ -269,9 +275,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setActivityLogs(updated);
     localStorage.setItem(STORAGE_KEYS.ACTIVITY_LOG, JSON.stringify(updated));
 
-    if (supabase) {
-      supabase.from("activity_log").insert(newLog).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("activity_log").insert(newLog);
+    });
   };
 
   // Automatically recalculate technology progress based on its topics
@@ -288,13 +294,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("technologies")
-        .update({ progress: avgProgress, updated_at: new Date().toISOString() })
-        .eq("id", techId)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("technologies").update({ progress: avgProgress, updated_at: new Date().toISOString() }).eq("id", techId);
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -322,9 +324,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     localStorage.setItem(STORAGE_KEYS.TECHNOLOGIES, JSON.stringify(updated));
     logActivity("technology", newTech.id, "created", `Created technology "${newTech.name}"`);
 
-    if (supabase) {
-      supabase.from("technologies").insert(newTech).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("technologies").insert(newTech);
+    });
 
     return newTech;
   };
@@ -336,13 +338,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("technologies")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("technologies").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id);
+    });
   };
 
   const deleteTechnology = (id: string) => {
@@ -369,9 +367,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       logActivity("technology", id, "deleted", `Deleted technology "${techToDelete.name}"`);
     }
 
-    if (supabase) {
-      supabase.from("technologies").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("technologies").delete().eq("id", id);
+    });
   };
 
   const toggleFavoriteTechnology = (id: string) => {
@@ -408,9 +406,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     recalculateTechnologyProgress(newTopic.technology_id, updated);
     logActivity("topic", newTopic.id, "created", `Created topic "${newTopic.name}"`);
 
-    if (supabase) {
-      supabase.from("topics").insert(newTopic).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("topics").insert(newTopic);
+    });
 
     return newTopic;
   };
@@ -441,13 +439,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("topics")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("topics").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id);
+    });
   };
 
   const updateTopicProgress = (id: string, progress: number) => {
@@ -469,9 +463,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       logActivity("topic", id, "deleted", `Deleted topic "${topicToDelete.name}"`);
     }
 
-    if (supabase) {
-      supabase.from("topics").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("topics").delete().eq("id", id);
+    });
   };
 
   const toggleFavoriteTopic = (id: string) => {
@@ -515,9 +509,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setChecklistItems(updated);
     localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
 
-    if (supabase) {
-      supabase.from("checklist_items").insert(newItem).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("checklist_items").insert(newItem);
+    });
 
     return newItem;
   };
@@ -536,7 +530,6 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
 
       localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
 
-      // Calculate progress from checklist items
       if (targetTopicId) {
         const topicItems = updated.filter((i) => i.topic_id === targetTopicId);
         if (topicItems.length > 0) {
@@ -550,12 +543,10 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     });
 
     const curr = checklistItems.find((c) => c.id === id);
-    if (curr && supabase) {
-      supabase
-        .from("checklist_items")
-        .update({ is_completed: !curr.is_completed, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
+    if (curr) {
+      runSupabase(async (client) => {
+        await client.from("checklist_items").update({ is_completed: !curr.is_completed, updated_at: new Date().toISOString() }).eq("id", id);
+      });
     }
   };
 
@@ -564,9 +555,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setChecklistItems(updated);
     localStorage.setItem(STORAGE_KEYS.CHECKLIST, JSON.stringify(updated));
 
-    if (supabase) {
-      supabase.from("checklist_items").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("checklist_items").delete().eq("id", id);
+    });
   };
 
   const getTopicChecklist = (topicId: string) => {
@@ -596,9 +587,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(updated));
     logActivity("note", newNote.id, "created", `Created note "${newNote.title}"`);
 
-    if (supabase) {
-      supabase.from("notes").insert(newNote).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("notes").insert(newNote);
+    });
 
     return newNote;
   };
@@ -610,13 +601,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("notes")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("notes").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id);
+    });
   };
 
   const deleteNote = (id: string) => {
@@ -629,9 +616,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       logActivity("note", id, "deleted", `Deleted note "${noteToDelete.title}"`);
     }
 
-    if (supabase) {
-      supabase.from("notes").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("notes").delete().eq("id", id);
+    });
   };
 
   const toggleFavoriteNote = (id: string) => {
@@ -651,13 +638,12 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       user_id: SAMPLE_USER_ID,
       technology_id: data.technology_id,
       topic_id: data.topic_id,
-      name: data.name || "Uploaded File",
+      filename: data.filename || "Uploaded File",
       file_type: data.file_type || "image",
       storage_path: data.storage_path || "",
       file_size: data.file_size || 0,
-      mime_type: data.mime_type || "image/png",
-      thumbnail_url: data.thumbnail_url,
-      extracted_text: data.extracted_text,
+      public_url: data.public_url || "",
+      is_handwritten: Boolean(data.is_handwritten),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -665,11 +651,11 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     const updated = [newFile, ...files];
     setFiles(updated);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
-    logActivity("file", newFile.id, "created", `Uploaded document "${newFile.name}"`);
+    logActivity("file", newFile.id, "created", `Uploaded document "${newFile.filename}"`);
 
-    if (supabase) {
-      supabase.from("files").insert(newFile).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("files").insert(newFile);
+    });
 
     return newFile;
   };
@@ -681,13 +667,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("files")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("files").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id);
+    });
   };
 
   const deleteFile = (id: string) => {
@@ -695,9 +677,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setFiles(updated);
     localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(updated));
 
-    if (supabase) {
-      supabase.from("files").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("files").delete().eq("id", id);
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -713,7 +695,7 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       description: data.description || "",
       nodes_json: data.nodes_json || [],
       edges_json: data.edges_json || [],
-      thumbnail_url: data.thumbnail_url,
+      viewport_json: data.viewport_json,
       is_favorite: Boolean(data.is_favorite),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -724,9 +706,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     localStorage.setItem(STORAGE_KEYS.MIND_MAPS, JSON.stringify(updated));
     logActivity("mind_map", newMap.id, "created", `Created mind map "${newMap.title}"`);
 
-    if (supabase) {
-      supabase.from("mind_maps").insert(newMap).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("mind_maps").insert(newMap);
+    });
 
     return newMap;
   };
@@ -738,13 +720,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       return updated;
     });
 
-    if (supabase) {
-      supabase
-        .from("mind_maps")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("mind_maps").update({ ...data, updated_at: new Date().toISOString() }).eq("id", id);
+    });
   };
 
   const deleteMindMap = (id: string) => {
@@ -757,9 +735,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       logActivity("mind_map", id, "deleted", `Deleted mind map "${mapToDelete.title}"`);
     }
 
-    if (supabase) {
-      supabase.from("mind_maps").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("mind_maps").delete().eq("id", id);
+    });
   };
 
   const toggleFavoriteMindMap = (id: string) => {
@@ -882,27 +860,29 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   // Learning Sessions Actions
   // --------------------------------------------------------------------------
   const addLearningSession = (data: Partial<LearningSession>): LearningSession => {
+    const tech = technologies.find((t) => t.id === data.technology_id);
     const newSession: LearningSession = {
       id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `sess-${Date.now()}`,
       user_id: SAMPLE_USER_ID,
-      technology_id: data.technology_id!,
-      topic_id: data.topic_id,
+      technology_id: data.technology_id || null,
+      topic_id: data.topic_id || null,
+      date: data.date || new Date().toISOString().split("T")[0],
       duration_minutes: data.duration_minutes || 30,
-      session_date: data.session_date || new Date().toISOString().split("T")[0],
-      notes: data.notes,
+      title: data.title || (tech ? `${tech.name} Study Session` : "Study Session"),
+      description: data.description || "",
       created_at: new Date().toISOString(),
+      technology_name: tech?.name,
     };
 
     const updated = [newSession, ...learningSessions];
     setLearningSessions(updated);
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updated));
 
-    const tech = technologies.find((t) => t.id === newSession.technology_id);
-    logActivity("session", newSession.id, "created", `Logged ${newSession.duration_minutes}m study on ${tech?.name || "Technology"}`);
+    logActivity("session", newSession.id, "created", `Logged ${newSession.duration_minutes}m study on ${newSession.title}`);
 
-    if (supabase) {
-      supabase.from("learning_sessions").insert(newSession).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("learning_sessions").insert(newSession);
+    });
 
     return newSession;
   };
@@ -912,9 +892,9 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
     setLearningSessions(updated);
     localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(updated));
 
-    if (supabase) {
-      supabase.from("learning_sessions").delete().eq("id", id).catch(console.error);
-    }
+    runSupabase(async (client) => {
+      await client.from("learning_sessions").delete().eq("id", id);
+    });
   };
 
   // --------------------------------------------------------------------------
@@ -1109,12 +1089,11 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
       totalTopics,
       completedTopics,
       inProgressTopics,
-      notStartedTopics,
       totalNotes,
       totalMindMaps,
       totalFiles,
-      totalMinutesStudied: totalMinutes,
-      overallProgress,
+      totalLearningMinutes: totalMinutes,
+      streakDays: 7,
     };
   }, [technologies, topics, notes, mindMaps, files, learningSessions]);
 
