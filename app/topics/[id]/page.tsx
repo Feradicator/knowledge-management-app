@@ -277,8 +277,28 @@ export default function TopicDetailPage() {
               </button>
             </div>
 
-            {/* Actions: Favorite & Log Study Time */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Actions: Edit Notes, Favorite & Log Study Time */}
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              {isEditingNotes ? (
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() => setIsEditingNotes(false)}
+                  className="gap-1.5 text-xs h-8 font-semibold text-emerald-600 dark:text-emerald-400"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Done (Reading View)
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsEditingNotes(true)}
+                  className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
+                >
+                  <Edit2 className="h-3.5 w-3.5" /> Edit Notes
+                </Button>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
@@ -307,32 +327,6 @@ export default function TopicDetailPage() {
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Left 2 Cols: Notes Reading / Editing Area */}
             <div className="xl:col-span-2 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" /> Topic Notes & Deep-Dive Insights
-                </h3>
-                
-                {isEditingNotes ? (
-                  <Button
-                    size="sm"
-                    variant="subtle"
-                    onClick={() => setIsEditingNotes(false)}
-                    className="gap-1.5 text-xs font-semibold"
-                  >
-                    <Eye className="h-3.5 w-3.5 text-emerald-500" /> Done (Reading View)
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsEditingNotes(true)}
-                    className="gap-1.5 text-xs font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
-                  >
-                    <Edit2 className="h-3.5 w-3.5" /> Edit Notes
-                  </Button>
-                )}
-              </div>
-
               {isEditingNotes ? (
                 <Card className="p-4 bg-card border border-border/80 shadow-xs">
                   <TiptapEditor
