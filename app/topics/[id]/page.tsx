@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useLearningStore } from "@/lib/store/learning-store";
 import { TiptapEditor } from "@/components/notes/tiptap-editor";
 import { TopicBookSidebar } from "@/components/topics/topic-book-sidebar";
+import { ReaderPreferencesBar } from "@/components/notes/reader-preferences-bar";
+import { useReaderPreferences } from "@/lib/hooks/use-reader-preferences";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -23,7 +25,6 @@ import {
   Edit2,
   Eye,
   CornerDownRight,
-  FolderTree,
 } from "lucide-react";
 import { getStatusColor, cn } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
@@ -57,6 +58,8 @@ export default function ContinuousTopicBookPage() {
     updateNote,
     addLearningSession,
   } = useLearningStore();
+
+  const readerPrefs = useReaderPreferences();
 
   const currentTopic = getTopicById(initialTopicId);
   const tech = currentTopic ? getTechnologyById(currentTopic.technology_id) : undefined;
@@ -234,9 +237,9 @@ export default function ContinuousTopicBookPage() {
 
   return (
     <div data-page-container="full-height" className="h-full flex flex-col overflow-hidden min-h-0">
-      {/* Persistent Top Navigation Bar (Fixed in place) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/80 shrink-0 bg-background z-20">
-        <div className="flex items-center gap-2 flex-wrap">
+      {/* Persistent Top Navigation Bar with Reader Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/80 shrink-0 bg-background z-20">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
           <Link
             href="/technologies"
             className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -274,15 +277,25 @@ export default function ContinuousTopicBookPage() {
             </>
           )}
 
-          <span className="text-xs font-bold text-foreground">
+          <span className="text-xs font-bold text-foreground truncate">
             {activeVisibleTopic?.name || "Study Guide"}
           </span>
         </div>
 
-        {/* Previous / Next chapter jump buttons */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-xs text-muted-foreground hidden sm:inline mr-2 font-mono">
-            Topic {currentVisibleIndex + 1} of {flatOrderedTopics.length}
+        {/* Right Controls: Day/Night Theme + Font Size Stepper + Chapter Jump */}
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap self-start sm:self-auto">
+          {/* Reader Preferences Bar */}
+          <ReaderPreferencesBar
+            theme={readerPrefs.readerTheme}
+            fontSize={readerPrefs.readerFontSize}
+            onThemeChange={readerPrefs.updateTheme}
+            onFontSizeChange={readerPrefs.updateFontSize}
+            onIncreaseFontSize={readerPrefs.increaseFontSize}
+            onDecreaseFontSize={readerPrefs.decreaseFontSize}
+          />
+
+          <span className="text-xs text-muted-foreground hidden xl:inline font-mono">
+            {currentVisibleIndex + 1}/{flatOrderedTopics.length}
           </span>
 
           {prevItem ? (
@@ -293,7 +306,7 @@ export default function ContinuousTopicBookPage() {
               className="gap-1 text-xs h-8"
               title={`Previous: ${prevItem.topic.name}`}
             >
-              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline truncate max-w-[120px]">{prevItem.topic.name}</span>
+              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline truncate max-w-[100px]">{prevItem.topic.name}</span>
               <span className="sm:hidden">Prev</span>
             </Button>
           ) : (
@@ -309,7 +322,7 @@ export default function ContinuousTopicBookPage() {
               className="gap-1 text-xs h-8 shadow-xs"
               title={`Next: ${nextItem.topic.name}`}
             >
-              <span className="hidden sm:inline truncate max-w-[120px]">{nextItem.topic.name}</span>
+              <span className="hidden sm:inline truncate max-w-[100px]">{nextItem.topic.name}</span>
               <span className="sm:hidden">Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -498,7 +511,7 @@ export default function ContinuousTopicBookPage() {
                   </div>
                 </div>
 
-                {/* Notes Container: Reading View vs Tiptap Editor */}
+                {/* Notes Container: Reading View with Theme & Font Size vs Tiptap Editor */}
                 <div className="space-y-4">
                   {isEditingThis ? (
                     <Card className="p-4 bg-card border border-border/80 shadow-xs">
@@ -512,10 +525,19 @@ export default function ContinuousTopicBookPage() {
                       />
                     </Card>
                   ) : (
-                    <div className="p-6 sm:p-8 rounded-2xl bg-card border border-border/80 shadow-xs min-h-[140px]">
+                    <div
+                      className={cn(
+                        "p-6 sm:p-8 rounded-2xl border transition-colors duration-200 min-h-[140px]",
+                        readerPrefs.getThemeContainerClass()
+                      )}
+                    >
                       {noteForTopic?.content_html ? (
                         <div
-                          className="tiptap-content prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed"
+                          className={cn(
+                            "tiptap-content prose max-w-none transition-all duration-150",
+                            readerPrefs.getProseClass(),
+                            readerPrefs.getFontSizeClass()
+                          )}
                           dangerouslySetInnerHTML={{ __html: noteForTopic.content_html }}
                         />
                       ) : (

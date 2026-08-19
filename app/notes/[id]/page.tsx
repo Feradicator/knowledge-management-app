@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLearningStore } from "@/lib/store/learning-store";
 import { TiptapEditor } from "@/components/notes/tiptap-editor";
+import { ReaderPreferencesBar } from "@/components/notes/reader-preferences-bar";
+import { useReaderPreferences } from "@/lib/hooks/use-reader-preferences";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +24,7 @@ import {
   Edit2,
   Eye,
 } from "lucide-react";
-import { formatRelativeDate } from "@/lib/utils";
+import { formatRelativeDate, cn } from "@/lib/utils";
 
 export default function NoteDetailPage() {
   const params = useParams();
@@ -30,6 +32,8 @@ export default function NoteDetailPage() {
   const id = params.id as string;
   const { getNoteById, technologies, topics, updateNote, deleteNote, toggleFavoriteNote } =
     useLearningStore();
+
+  const readerPrefs = useReaderPreferences();
 
   const note = getNoteById(id);
 
@@ -79,16 +83,16 @@ export default function NoteDetailPage() {
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete '${note.title}'?`)) {
+    if (window.confirm("Are you sure you want to delete this note?")) {
       deleteNote(note.id);
       router.push("/notes");
     }
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
       {/* Back Button & Top Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
         <Link
           href="/notes"
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
@@ -96,16 +100,28 @@ export default function NoteDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Back to Notes Hub
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Reader Preferences Bar in Reading Mode */}
+          {!isEditing && (
+            <ReaderPreferencesBar
+              theme={readerPrefs.readerTheme}
+              fontSize={readerPrefs.readerFontSize}
+              onThemeChange={readerPrefs.updateTheme}
+              onFontSizeChange={readerPrefs.updateFontSize}
+              onIncreaseFontSize={readerPrefs.increaseFontSize}
+              onDecreaseFontSize={readerPrefs.decreaseFontSize}
+            />
+          )}
+
           {/* Edit / Reading Mode Toggle */}
           {isEditing ? (
             <Button
               size="sm"
               variant="subtle"
               onClick={() => setIsEditing(false)}
-              className="gap-1.5 text-xs font-semibold"
+              className="gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
             >
-              <Eye className="h-3.5 w-3.5 text-emerald-500" /> Done (Reading View)
+              <Eye className="h-3.5 w-3.5" /> Done (Reading View)
             </Button>
           ) : (
             <Button
@@ -122,10 +138,10 @@ export default function NoteDetailPage() {
             variant="outline"
             size="sm"
             onClick={() => toggleFavoriteNote(note.id)}
-            className="gap-1.5"
+            className="gap-1.5 text-xs h-8"
           >
             <Star
-              className={`h-4 w-4 ${
+              className={`h-3.5 w-3.5 ${
                 note.is_favorite ? "fill-amber-400 text-amber-400" : ""
               }`}
             />
@@ -137,7 +153,7 @@ export default function NoteDetailPage() {
             onClick={handleDelete}
             title="Delete note"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
@@ -160,8 +176,7 @@ export default function NoteDetailPage() {
               />
             </div>
 
-            {/* Association Selectors */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                   Associated Technology
@@ -171,7 +186,7 @@ export default function NoteDetailPage() {
                   onChange={(e) => updateNote(note.id, { technology_id: e.target.value || null })}
                   className="w-full h-9 rounded-lg border border-input bg-transparent px-3 text-xs sm:text-sm"
                 >
-                  <option value="" className="bg-card">None (Standalone Note)</option>
+                  <option value="" className="bg-card">None (General Note)</option>
                   {technologies.map((t) => (
                     <option key={t.id} value={t.id} className="bg-card">
                       {t.name}
@@ -297,11 +312,20 @@ export default function NoteDetailPage() {
             )}
           </div>
 
-          {/* Readable Document Content */}
-          <div className="p-8 rounded-2xl bg-card border border-border/80 shadow-xs min-h-[300px]">
+          {/* Readable Document Content with Theme & Font Size */}
+          <div
+            className={cn(
+              "p-8 sm:p-10 rounded-2xl border transition-colors duration-200 min-h-[300px]",
+              readerPrefs.getThemeContainerClass()
+            )}
+          >
             {note.content_html ? (
               <div
-                className="tiptap-content prose dark:prose-invert max-w-none text-base leading-relaxed"
+                className={cn(
+                  "tiptap-content prose max-w-none transition-all duration-150",
+                  readerPrefs.getProseClass(),
+                  readerPrefs.getFontSizeClass()
+                )}
                 dangerouslySetInnerHTML={{ __html: note.content_html }}
               />
             ) : (

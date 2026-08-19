@@ -12,6 +12,7 @@ import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TextStyle, FontSize } from "@/lib/tiptap-font-size";
 import { Button } from "@/components/ui/button";
 import {
   Bold,
@@ -32,6 +33,7 @@ import {
   Check,
   Save,
   RotateCcw,
+  Type,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,8 @@ export function TiptapEditor({
           levels: [1, 2, 3],
         },
       }),
+      TextStyle,
+      FontSize,
       Underline,
       Highlight.configure({ multicolor: true }),
       LinkExtension.configure({
@@ -186,6 +190,33 @@ export function TiptapEditor({
           >
             <Heading3 className="h-4 w-4" />
           </button>
+
+          {/* Font Size Dropdown */}
+          <div className="flex items-center gap-1 mx-0.5">
+            <select
+              aria-label="Text Font Size"
+              onChange={(e) => {
+                const size = e.target.value;
+                if (size === "default") {
+                  editor.chain().focus().unsetFontSize().run();
+                } else {
+                  editor.chain().focus().setFontSize(size).run();
+                }
+              }}
+              value={editor.getAttributes("textStyle").fontSize || "default"}
+              className="h-7 px-1.5 text-xs rounded-md bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
+            >
+              <option value="default">Font Size</option>
+              <option value="12px">12px (Small)</option>
+              <option value="14px">14px (Normal)</option>
+              <option value="16px">16px (Medium)</option>
+              <option value="18px">18px (Large)</option>
+              <option value="20px">20px (XL)</option>
+              <option value="24px">24px (Title)</option>
+              <option value="28px">28px (Hero)</option>
+              <option value="32px">32px (Huge)</option>
+            </select>
+          </div>
 
           <div className="h-4 w-px bg-border mx-1" />
 

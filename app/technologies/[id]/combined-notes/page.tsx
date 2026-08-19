@@ -4,6 +4,8 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLearningStore } from "@/lib/store/learning-store";
+import { ReaderPreferencesBar } from "@/components/notes/reader-preferences-bar";
+import { useReaderPreferences } from "@/lib/hooks/use-reader-preferences";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,7 +24,7 @@ import {
   ExternalLink,
   Tag,
 } from "lucide-react";
-import { formatDateString, formatRelativeDate, getStatusColor } from "@/lib/utils";
+import { formatDateString, formatRelativeDate, getStatusColor, cn } from "@/lib/utils";
 
 export default function CombinedNotesPage() {
   const params = useParams();
@@ -36,6 +38,8 @@ export default function CombinedNotesPage() {
     checklistItems,
     files,
   } = useLearningStore();
+
+  const readerPrefs = useReaderPreferences();
 
   const tech = getTechnologyById(techId);
   const topicsTree = useMemo(() => (tech ? getTopicTree(tech.id) : []), [tech, getTopicTree]);
@@ -84,39 +88,34 @@ export default function CombinedNotesPage() {
   };
 
   const handleCopyMarkdown = () => {
-    let md = `# ${tech.name} Comprehensive Study Guide & Notes\n\n`;
-    md += `*Category: ${tech.category} | Progress: ${tech.progress}% | Exported: ${new Date().toLocaleDateString()}*\n\n`;
-    md += `${tech.description || ""}\n\n`;
-    md += `---\n\n## Table of Contents\n\n`;
+    let md = `# ${tech.name} — Study Guide & Comprehensive Notes\n\n`;
+    md += `**Category:** ${tech.category} | **Progress:** ${tech.progress}%\n`;
+    md += `*Generated from KnowledgeOS on ${new Date().toLocaleDateString()}*\n\n---\n\n`;
 
+    if (tech.description) {
+      md += `## Overview\n${tech.description}\n\n`;
+    }
+
+    if (generalTechNotes.length > 0) {
+      md += `## General Technical Notes\n\n`;
+      generalTechNotes.forEach((n) => {
+        const plainText = n.content_html.replace(/<[^>]+>/g, " ");
+        md += `### ${n.title}\n\n${plainText.trim()}\n\n`;
+      });
+      md += `---\n\n`;
+    }
+
+    md += `## Table of Contents & Roadmap Notes\n\n`;
     flattenedTopicsWithLevel.forEach(({ topic, chapterNumber }) => {
-      md += `- [${chapterNumber} ${topic.name}](#${topic.slug || topic.id})\n`;
-    });
-    md += `\n---\n\n`;
-
-    flattenedTopicsWithLevel.forEach(({ topic, chapterNumber }) => {
-      const topicNotes = notes.filter((n) => n.topic_id === topic.id);
-      const chk = checklistItems.filter((c) => c.topic_id === topic.id);
-
-      md += `## ${chapterNumber} ${topic.name}\n\n`;
-      md += `**Status:** ${topic.status} | **Priority:** ${topic.priority} | **Mastery:** ${topic.progress}%\n\n`;
-      if (topic.description) md += `*${topic.description}*\n\n`;
-
-      if (chk.length > 0) {
-        md += `### Milestones & Checklist\n`;
-        chk.forEach((c) => {
-          md += `- [${c.is_completed ? "x" : " "}] ${c.title}\n`;
-        });
-        md += `\n`;
+      md += `### Chapter ${chapterNumber}: ${topic.name} (${topic.status})\n\n`;
+      if (topic.description) {
+        md += `> ${topic.description}\n\n`;
       }
 
+      const topicNotes = notes.filter((n) => n.topic_id === topic.id);
       if (topicNotes.length > 0) {
-        md += `### Notes & Insights\n\n`;
         topicNotes.forEach((n) => {
-          // Strip HTML tags for clean markdown copy
-          const plainText = n.content_html
-            ? n.content_html.replace(/<\/p>/g, "\n\n").replace(/<br\s*[\/]?>/gi, "\n").replace(/<[^>]+>/g, "")
-            : "No text notes recorded.";
+          const plainText = n.content_html.replace(/<[^>]+>/g, " ");
           md += `#### ${n.title}\n\n${plainText.trim()}\n\n`;
         });
       } else {
@@ -132,9 +131,9 @@ export default function CombinedNotesPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-20 print:p-0 print:m-0 print:max-w-full">
+    <div className="max-w-4xl mx-auto space-y-6 pb-20 print:p-0 print:m-0 print:max-w-full">
       {/* Top Action Bar (Hidden in Print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border/80 shadow-xs print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-card border border-border/80 shadow-xs print:hidden flex-wrap">
         <div className="flex items-center gap-3">
           <Link href={`/technologies/${tech.id}`}>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
@@ -142,11 +141,21 @@ export default function CombinedNotesPage() {
             </Button>
           </Link>
           <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
-            Compiled Study Guide & Book
+            Compiled Study Guide
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Reader Theme & Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ReaderPreferencesBar
+            theme={readerPrefs.readerTheme}
+            fontSize={readerPrefs.readerFontSize}
+            onThemeChange={readerPrefs.updateTheme}
+            onFontSizeChange={readerPrefs.updateFontSize}
+            onIncreaseFontSize={readerPrefs.increaseFontSize}
+            onDecreaseFontSize={readerPrefs.decreaseFontSize}
+          />
+
           <Button
             variant="outline"
             size="sm"
@@ -154,22 +163,27 @@ export default function CombinedNotesPage() {
             className="gap-1.5 text-xs"
           >
             <Copy className="h-3.5 w-3.5" />
-            <span>{copied ? "Copied Markdown! ✓" : "Copy Markdown"}</span>
+            <span className="hidden sm:inline">{copied ? "Copied! ✓" : "Markdown"}</span>
           </Button>
 
           <Button
             size="sm"
             onClick={handlePrintPdf}
-            className="gap-1.5 text-xs shadow-sm shadow-primary/20 bg-primary text-primary-foreground font-bold"
+            className="gap-1.5 text-xs shadow-xs font-bold"
           >
             <Printer className="h-4 w-4" />
-            <span>Export to PDF / Print</span>
+            <span>Print PDF</span>
           </Button>
         </div>
       </div>
 
-      {/* Printable Book Container */}
-      <div className="bg-card text-foreground rounded-3xl border border-border/80 p-8 sm:p-12 shadow-sm space-y-10 print:border-none print:shadow-none print:p-0">
+      {/* Printable Book Container with Dynamic Theme */}
+      <div
+        className={cn(
+          "rounded-3xl border p-8 sm:p-12 shadow-sm space-y-10 transition-colors duration-200 print:border-none print:shadow-none print:p-0 print:bg-white print:text-black",
+          readerPrefs.getThemeContainerClass()
+        )}
+      >
         {/* Book Title & Meta Header */}
         <div className="space-y-4 pb-8 border-b-2 border-border/80">
           <div className="flex items-center gap-2.5">
@@ -179,66 +193,52 @@ export default function CombinedNotesPage() {
             >
               {tech.category}
             </span>
-            <span className="text-xs font-semibold text-muted-foreground">
-              {tech.progress}% Total Mastery • {flattenedTopicsWithLevel.length} Topics Compiled
+            <span className="text-xs font-semibold opacity-70">
+              Progress: {tech.progress}%
+            </span>
+            <span className="text-xs font-semibold opacity-70 ml-auto hidden sm:inline">
+              Compiled on {new Date().toLocaleDateString()}
             </span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
-            {tech.name} Comprehensive Study Guide
-          </h1>
-
-          {tech.description && (
-            <p className="text-base text-muted-foreground leading-relaxed">
-              {tech.description}
+          <div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight">
+              {tech.name} Study Guide
+            </h1>
+            <p className="text-sm opacity-80 mt-2 max-w-2xl leading-relaxed">
+              {tech.description || "Comprehensive technical reference, command guides, and curated architectural deep-dives."}
             </p>
-          )}
+          </div>
 
-          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2">
-            <span>Compiled from live knowledge vault</span>
+          <div className="flex items-center gap-3 pt-2 text-xs opacity-75 flex-wrap">
+            <span className="flex items-center gap-1 font-medium">
+              <ListTree className="h-3.5 w-3.5" /> {flattenedTopicsWithLevel.length} Chapters & Subtopics
+            </span>
             <span>•</span>
-            <span>Date: {new Date().toLocaleDateString()}</span>
+            <span className="flex items-center gap-1 font-medium">
+              <FileText className="h-3.5 w-3.5" /> {notes.filter((n) => n.technology_id === tech.id).length} Technical Notes
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1 font-medium">
+              <Sparkles className="h-3.5 w-3.5" /> Mastery: {tech.progress}%
+            </span>
           </div>
         </div>
 
-        {/* Table of Contents Box */}
-        <div className="p-6 rounded-2xl bg-secondary/40 border border-border/60 space-y-4">
-          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-            <ListTree className="h-5 w-5 text-primary" /> Table of Contents
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
-            {flattenedTopicsWithLevel.map(({ topic, level, chapterNumber }) => (
-              <a
-                key={topic.id}
-                href={`#topic-${topic.id}`}
-                className="flex items-center justify-between gap-2 py-1 text-foreground/80 hover:text-primary transition-colors group"
-                style={{ paddingLeft: `${level * 12}px` }}
-              >
-                <span className="truncate group-hover:underline">
-                  <strong className="font-mono text-muted-foreground mr-1.5">{chapterNumber}</strong>
-                  {topic.name}
-                </span>
-                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  {topic.progress}%
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* General Tech Notes (if any) */}
+        {/* General Technical Notes */}
         {generalTechNotes.length > 0 && (
-          <div className="space-y-4 pb-8 border-b border-border/60">
-            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" /> General Overview & Architecture Notes
-            </h2>
-            <div className="space-y-4">
+          <div className="space-y-6 pb-6 border-b border-border/70">
+            <h2 className="text-2xl font-bold">General Architecture & Setup</h2>
+            <div className="space-y-6">
               {generalTechNotes.map((n) => (
-                <div key={n.id} className="p-5 rounded-2xl bg-secondary/20 border border-border/60 space-y-2">
-                  <h3 className="font-bold text-base text-foreground">{n.title}</h3>
+                <div key={n.id} className="space-y-2">
+                  <h3 className="text-lg font-bold">{n.title}</h3>
                   <div
-                    className="prose prose-sm dark:prose-invert max-w-none text-foreground/90"
+                    className={cn(
+                      "tiptap-content prose max-w-none",
+                      readerPrefs.getProseClass(),
+                      readerPrefs.getFontSizeClass()
+                    )}
                     dangerouslySetInnerHTML={{ __html: n.content_html }}
                   />
                 </div>
@@ -276,8 +276,8 @@ export default function CombinedNotesPage() {
                     </div>
 
                     <h2
-                      className={`font-extrabold text-foreground ${
-                        level === 0 ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl text-foreground/90"
+                      className={`font-extrabold ${
+                        level === 0 ? "text-2xl sm:text-3xl" : "text-xl sm:text-2xl"
                       }`}
                     >
                       {topic.name}
@@ -293,71 +293,35 @@ export default function CombinedNotesPage() {
 
                 {/* Topic Description */}
                 {topic.description && (
-                  <p className="text-sm text-muted-foreground italic bg-secondary/30 p-3 rounded-xl border border-border/40">
+                  <p className="text-sm opacity-80 italic bg-secondary/30 p-3 rounded-xl border border-border/40">
                     {topic.description}
                   </p>
                 )}
 
-                {/* Checklist Milestones */}
-                {topicChecklist.length > 0 && (
-                  <div className="space-y-2 p-4 rounded-xl bg-secondary/20 border border-border/50">
-                    <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Milestones & Checklist
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      {topicChecklist.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`flex items-center gap-2 p-2 rounded-lg ${
-                            item.is_completed
-                              ? "text-emerald-600 dark:text-emerald-400 font-medium"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          <span className="font-mono text-xs">
-                            {item.is_completed ? "☑" : "☐"}
-                          </span>
-                          <span>{item.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Notes Content */}
+                {/* Topic Deep-Dive Notes */}
                 {topicNotes.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-6 pt-2">
                     {topicNotes.map((note) => (
-                      <div
-                        key={note.id}
-                        className="p-5 rounded-2xl bg-card border border-border/70 shadow-xs space-y-3"
-                      >
-                        <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
-                          <h3 className="font-bold text-base text-foreground">{note.title}</h3>
-                          {note.tags && note.tags.length > 0 && (
-                            <div className="flex gap-1">
-                              {note.tags.map((t) => (
-                                <span
-                                  key={t}
-                                  className="px-1.5 py-0.5 rounded bg-secondary text-[10px] text-muted-foreground font-mono"
-                                >
-                                  #{t}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
+                      <div key={note.id} className="space-y-3">
+                        {topicNotes.length > 1 && (
+                          <h4 className="text-base font-bold flex items-center gap-2 border-b border-border/40 pb-1">
+                            <FileText className="h-4 w-4 text-primary" /> {note.title}
+                          </h4>
+                        )}
                         <div
-                          className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 leading-relaxed"
+                          className={cn(
+                            "tiptap-content prose max-w-none",
+                            readerPrefs.getProseClass(),
+                            readerPrefs.getFontSizeClass()
+                          )}
                           dangerouslySetInnerHTML={{ __html: note.content_html }}
                         />
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground py-2 italic">
-                    No detailed text notes documented yet for this topic.
+                  <p className="text-xs opacity-60 italic py-2">
+                    No notes written for this chapter yet.
                   </p>
                 )}
               </section>
@@ -365,23 +329,6 @@ export default function CombinedNotesPage() {
           })}
         </div>
       </div>
-
-      {/* Print CSS Stylesheet */}
-      <style jsx global>{`
-        @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-          nav, aside, header, .print\\:hidden {
-            display: none !important;
-          }
-          .break-inside-avoid {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-        }
-      `}</style>
     </div>
   );
 }
