@@ -25,6 +25,7 @@ import {
   Hourglass,
   ListTree,
   ExternalLink,
+  BookOpen,
 } from "lucide-react";
 
 export default function TechnologyDetailPage() {
@@ -124,7 +125,7 @@ export default function TechnologyDetailPage() {
           </div>
 
           {/* Actions & Favorite Button */}
-          <div className="flex items-center gap-2 self-start">
+          <div className="flex items-center gap-2 self-start flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -138,6 +139,16 @@ export default function TechnologyDetailPage() {
               />
               <span>{tech.is_favorite ? "Favorited" : "Favorite"}</span>
             </Button>
+            <Link href={`/technologies/${tech.id}/combined-notes`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Combined Notes & PDF</span>
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"

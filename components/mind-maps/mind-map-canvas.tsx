@@ -26,6 +26,7 @@ import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
+  Minus,
   Save,
   Trash2,
   Maximize2,
@@ -35,6 +36,9 @@ import {
   Palette,
   Edit2,
   FolderTree,
+  ListCollapse,
+  Network,
+  RotateCcw,
 } from "lucide-react";
 
 interface MindMapCanvasProps {
@@ -48,8 +52,8 @@ const nodeTypes = {
 export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
   const { updateMindMap } = useLearningStore();
 
-  // Convert stored nodes/edges to ReactFlow state
-  const initialNodes: Node[] = useMemo(() => {
+  // Convert stored nodes/edges to state
+  const rawNodes: Node[] = useMemo(() => {
     return (mindMap.nodes_json || []).map((n) => ({
       id: n.id,
       type: "custom",
@@ -58,7 +62,7 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
     }));
   }, [mindMap.id]);
 
-  const initialEdges: Edge[] = useMemo(() => {
+  const rawEdges: Edge[] = useMemo(() => {
     return (mindMap.edges_json || []).map((e) => ({
       id: e.id,
       source: e.source,
@@ -69,8 +73,96 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
     }));
   }, [mindMap.id]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // Track which parent nodes are expanded
+  // Initial state: expand root so all topics are visible, and expand topic nodes
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const initial = new Set<string>(["root"]);
+    rawNodes.forEach((n) => {
+      if ((n.data as any)?.level === 1 || (n.data as any)?.hasChildren) {
+        initial.add(n.id);
+      }
+    });
+    return initial;
+  });
+
+  const toggleExpand = useCallback((nodeId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => {
+    const all = new Set<string>();
+    rawNodes.forEach((n) => all.add(n.id));
+    setExpandedIds(all);
+  }, [rawNodes]);
+
+  const collapseToRoot = useCallback(() => {
+    setExpandedIds(new Set());
+  }, []);
+
+  // Compute visible nodes based on hierarchical parent expansion
+  const visibleNodes = useMemo(() => {
+    const visibleIdSet = new Set<string>();
+
+    // Pass 1: Root nodes are always visible
+    rawNodes.forEach((n) => {
+      const parentId = (n.data as any)?.parentId;
+      if (n.id === "root" || !parentId || (n.data as any)?.isRoot) {
+        visibleIdSet.add(n.id);
+      }
+    });
+
+    // Pass 2: Iteratively add child nodes if their parent is visible and expanded
+    let changed = true;
+    while (changed) {
+      changed = false;
+      rawNodes.forEach((n) => {
+        const parentId = (n.data as any)?.parentId;
+        if (parentId && visibleIdSet.has(parentId) && expandedIds.has(parentId)) {
+          if (!visibleIdSet.has(n.id)) {
+            visibleIdSet.add(n.id);
+            changed = true;
+          }
+        }
+      });
+    }
+
+    return rawNodes
+      .filter((n) => visibleIdSet.has(n.id))
+      .map((n) => ({
+        ...n,
+        data: {
+          ...(n.data as any),
+          isExpanded: expandedIds.has(n.id),
+          onToggleExpand: toggleExpand,
+        },
+      }));
+  }, [rawNodes, expandedIds, toggleExpand]);
+
+  // Compute visible edges connecting only visible nodes
+  const visibleEdges = useMemo(() => {
+    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+    return rawEdges.filter(
+      (e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)
+    );
+  }, [rawEdges, visibleNodes]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(visibleNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(visibleEdges);
+
+  // Sync visible nodes when expandedIds change
+  useEffect(() => {
+    setNodes(visibleNodes);
+    setEdges(visibleEdges);
+  }, [visibleNodes, visibleEdges, setNodes, setEdges]);
+
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving">("saved");
 
@@ -99,32 +191,6 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
     [setEdges]
   );
 
-  // Auto-save debounced
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const formattedNodes = nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: n.data as any,
-      }));
-      const formattedEdges = edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        animated: e.animated,
-      }));
-
-      updateMindMap(mindMap.id, {
-        nodes_json: formattedNodes,
-        edges_json: formattedEdges,
-      });
-      setSaveStatus("saved");
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [nodes, edges, mindMap.id]);
-
   const handleManualSave = () => {
     setSaveStatus("saving");
     const formattedNodes = nodes.map((n) => ({
@@ -152,8 +218,8 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
     if (!newNodeLabel.trim()) return;
 
     const newId = `node-${Date.now()}`;
-    const xPos = selectedNode ? selectedNode.position.x + 220 : 300 + (nodes.length % 4) * 80;
-    const yPos = selectedNode ? selectedNode.position.y + 120 : 200 + (nodes.length % 3) * 80;
+    const xPos = selectedNode ? selectedNode.position.x + 350 : 450 + (nodes.length % 4) * 80;
+    const yPos = selectedNode ? selectedNode.position.y + 40 : 200 + (nodes.length % 3) * 80;
 
     const newNode: Node = {
       id: newId,
@@ -163,23 +229,24 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
         label: newNodeLabel,
         description: newNodeDesc,
         color: newNodeColor,
+        level: selectedNode ? ((selectedNode.data as any)?.level || 0) + 1 : 1,
+        parentId: selectedNode ? selectedNode.id : "root",
       },
     };
 
     setNodes((nds) => [...nds, newNode]);
 
-    // If a node was selected, auto connect edge
-    if (selectedNode) {
-      const newEdge: Edge = {
-        id: `e-${selectedNode.id}-${newId}`,
-        source: selectedNode.id,
-        target: newId,
-        animated: true,
-        style: { stroke: newNodeColor, strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: newNodeColor },
-      };
-      setEdges((eds) => [...eds, newEdge]);
-    }
+    // Auto connect edge from parent
+    const parentId = selectedNode ? selectedNode.id : "root";
+    const newEdge: Edge = {
+      id: `e-${parentId}-${newId}`,
+      source: parentId,
+      target: newId,
+      animated: true,
+      style: { stroke: newNodeColor, strokeWidth: 2 },
+      markerEnd: { type: MarkerType.ArrowClosed, color: newNodeColor },
+    };
+    setEdges((eds) => [...eds, newEdge]);
 
     setNewNodeLabel("");
     setNewNodeDesc("");
@@ -226,13 +293,36 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
 
         {/* Top Floating Control Panel */}
         <Panel position="top-left" className="m-3">
-          <div className="flex items-center gap-2 p-2 rounded-xl bg-card/90 backdrop-blur-md border border-border shadow-lg">
+          <div className="flex items-center gap-2 p-2 rounded-xl bg-card/90 backdrop-blur-md border border-border shadow-lg flex-wrap">
+            {/* Expand / Collapse Controls */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={expandAll}
+              className="gap-1 text-xs h-8"
+              title="Expand all topics and subtopics"
+            >
+              <Plus className="h-3.5 w-3.5" /> Expand All
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={collapseToRoot}
+              className="gap-1 text-xs h-8"
+              title="Collapse to main technology only"
+            >
+              <Minus className="h-3.5 w-3.5" /> Collapse to Tech
+            </Button>
+
+            <div className="h-4 w-px bg-border/80 mx-1" />
+
             <Button
               size="sm"
               onClick={() => setIsAddNodeOpen(true)}
-              className="gap-1.5 text-xs font-semibold shadow-sm"
+              className="gap-1.5 text-xs font-semibold shadow-sm h-8"
             >
-              <Plus className="h-4 w-4" /> Add Node
+              <Plus className="h-4 w-4" /> Add Branch
             </Button>
 
             {selectedNode && (
@@ -240,9 +330,9 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
                 size="sm"
                 variant="destructive"
                 onClick={handleDeleteSelected}
-                className="gap-1.5 text-xs"
+                className="gap-1 text-xs h-8"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Delete Node
+                <Trash2 className="h-3.5 w-3.5" /> Delete
               </Button>
             )}
 
@@ -250,7 +340,7 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
               size="sm"
               variant="outline"
               onClick={handleExportJson}
-              className="gap-1.5 text-xs"
+              className="gap-1 text-xs h-8"
               title="Export as JSON"
             >
               <Download className="h-3.5 w-3.5" /> Export
@@ -260,7 +350,7 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
               size="sm"
               variant="outline"
               onClick={handleManualSave}
-              className="gap-1.5 text-xs"
+              className="gap-1 text-xs h-8"
             >
               {saveStatus === "saved" ? (
                 <>
@@ -279,8 +369,8 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
 
         {/* Instructions Banner */}
         <Panel position="bottom-center" className="m-3 pointer-events-none">
-          <div className="px-3 py-1.5 rounded-full bg-card/80 backdrop-blur-md border border-border text-[11px] text-muted-foreground shadow-sm">
-            💡 Drag nodes freely · Connect handles to create relations · Double-click node to rename
+          <div className="px-3 py-1.5 rounded-full bg-card/85 backdrop-blur-md border border-border text-[11px] text-muted-foreground shadow-sm">
+            💡 Click <strong>Technology</strong> or <strong>Topic</strong> cards to expand/collapse subtopics · Drag nodes freely
           </div>
         </Panel>
       </ReactFlow>
@@ -293,7 +383,7 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
       >
         <form onSubmit={handleAddNode} className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-foreground mb-1 block">Node Title</label>
+            <label className="text-xs font-semibold text-foreground mb-1 block">Branch Title</label>
             <Input
               placeholder="e.g. Refresh Token Rotation, JWT Claims, B-Tree Index"
               value={newNodeLabel}

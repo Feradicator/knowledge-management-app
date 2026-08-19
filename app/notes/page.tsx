@@ -86,9 +86,18 @@ export default function NotesPage() {
             Capture deep engineering notes, syntax patterns, code snippets, and study summaries.
           </p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
-          <Plus className="h-4 w-4" /> Create Note
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedTech !== "All" && (
+            <Link href={`/technologies/${selectedTech}/combined-notes`}>
+              <Button variant="outline" className="gap-2 text-primary border-primary/30 hover:bg-primary/10">
+                <BookOpen className="h-4 w-4" /> View Combined Guide
+              </Button>
+            </Link>
+          )}
+          <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
+            <Plus className="h-4 w-4" /> Create Note
+          </Button>
+        </div>
       </div>
 
       {/* Filter and Control Bar */}

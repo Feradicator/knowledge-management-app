@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Modal } from "@/components/ui/modal";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
+import { PdfViewerModal } from "@/components/files/pdf-viewer-modal";
 import { createClient } from "@/lib/supabase/client";
 import {
   FolderArchive,
@@ -29,6 +30,7 @@ import {
   X,
   CheckCircle,
   CloudUpload,
+  BookOpen,
 } from "lucide-react";
 import { formatBytes, formatRelativeDate } from "@/lib/utils";
 
@@ -56,8 +58,9 @@ export default function FilesPage() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Zoomable Image Modal
+  // Zoomable Image & PDF Modals
   const [viewerImage, setViewerImage] = useState<{ url: string; title: string } | null>(null);
+  const [viewerPdf, setViewerPdf] = useState<{ url: string; title: string } | null>(null);
 
   const filteredFiles = files.filter((f) => {
     const matchesSearch = f.filename.toLowerCase().includes(searchQuery.toLowerCase());
@@ -379,6 +382,13 @@ export default function FilesPage() {
                         >
                           <ZoomIn className="h-3.5 w-3.5" /> Inspect Scan
                         </button>
+                      ) : (file.file_type?.includes("pdf") || file.filename?.endsWith(".pdf")) && file.public_url ? (
+                        <button
+                          onClick={() => setViewerPdf({ url: file.public_url!, title: file.filename })}
+                          className="text-rose-500 font-semibold hover:underline flex items-center gap-1.5"
+                        >
+                          <BookOpen className="h-3.5 w-3.5" /> Read PDF
+                        </button>
                       ) : (
                         file.public_url ? (
                           <a
@@ -591,16 +601,16 @@ export default function FilesPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-foreground mb-1 block">Associate Topic</label>
+              <label className="text-xs font-semibold text-foreground mb-1 block">Associate Topic (Root Topics Only)</label>
               <select
                 value={uploadTopicId}
                 onChange={(e) => setUploadTopicId(e.target.value)}
                 className="w-full h-9 rounded-lg border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 disabled={!uploadTechId}
               >
-                <option value="" className="bg-card">None</option>
+                <option value="" className="bg-card">None (General to Technology)</option>
                 {topics
-                  .filter((top) => top.technology_id === uploadTechId)
+                  .filter((top) => top.technology_id === uploadTechId && !top.parent_topic_id)
                   .map((top) => (
                     <option key={top.id} value={top.id} className="bg-card">
                       {top.name}
@@ -640,6 +650,16 @@ export default function FilesPage() {
           onClose={() => setViewerImage(null)}
           imageUrl={viewerImage.url}
           title={viewerImage.title}
+        />
+      )}
+
+      {/* In-App PDF Viewer Modal */}
+      {viewerPdf && (
+        <PdfViewerModal
+          isOpen={Boolean(viewerPdf)}
+          onClose={() => setViewerPdf(null)}
+          pdfUrl={viewerPdf.url}
+          title={viewerPdf.title}
         />
       )}
     </div>

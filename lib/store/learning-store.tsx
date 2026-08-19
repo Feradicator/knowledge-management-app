@@ -828,27 +828,35 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const createMindMapFromTechnology = (techId: string): MindMap => {
     const tech = technologies.find((t) => t.id === techId);
     const techTopics = topics.filter((t) => t.technology_id === techId);
+    const rootTopics = techTopics.filter((t) => !t.parent_topic_id);
 
     const rootNode = {
       id: "root",
       type: "custom",
       data: {
         label: tech ? tech.name : "Technology Roadmap",
-        description: tech?.description || "Architecture & Learning Tree",
+        description: tech?.description || "Interactive Architecture & Knowledge Tree",
         status: "Learning" as TopicStatus,
         color: tech?.color || "#6366f1",
+        isRoot: true,
+        level: 0,
+        hasChildren: rootTopics.length > 0,
+        childCount: rootTopics.length,
+        isExpanded: true,
+        parentId: null,
       },
-      position: { x: 300, y: 150 },
+      position: { x: 80, y: Math.max(250, (rootTopics.length * 140) / 2) },
     };
 
     const childNodes: any[] = [];
     const edges: any[] = [];
 
-    techTopics.slice(0, 6).forEach((topic, idx) => {
-      const angle = (idx / Math.min(techTopics.length, 6)) * 2 * Math.PI;
-      const x = 300 + Math.cos(angle) * 260;
-      const y = 150 + Math.sin(angle) * 180;
+    let runningY = 80;
+
+    rootTopics.forEach((topic) => {
+      const subtopics = techTopics.filter((t) => t.parent_topic_id === topic.id);
       const nodeId = `node-${topic.id}`;
+      const topicY = runningY;
 
       childNodes.push({
         id: nodeId,
@@ -857,9 +865,15 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
           label: topic.name,
           description: topic.description || "",
           status: topic.status,
-          color: topic.status === "Completed" ? "#10b981" : "#3b82f6",
+          priority: topic.priority,
+          color: topic.status === "Completed" ? "#10b981" : "#6366f1",
+          level: 1,
+          hasChildren: subtopics.length > 0,
+          childCount: subtopics.length,
+          isExpanded: true,
+          parentId: "root",
         },
-        position: { x, y },
+        position: { x: 450, y: topicY },
       });
 
       edges.push({
@@ -869,12 +883,50 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
         animated: topic.status === "Learning",
         style: { stroke: "#6366f1", strokeWidth: 2 },
       });
+
+      // Place subtopics branching out from this root topic
+      if (subtopics.length > 0) {
+        subtopics.forEach((sub, subIdx) => {
+          const subNodeId = `node-${sub.id}`;
+          const subY = topicY + (subIdx - (subtopics.length - 1) / 2) * 95;
+
+          childNodes.push({
+            id: subNodeId,
+            type: "custom",
+            data: {
+              label: sub.name,
+              description: sub.description || "",
+              status: sub.status,
+              priority: sub.priority,
+              color: sub.status === "Completed" ? "#10b981" : "#38bdf8",
+              level: 2,
+              hasChildren: false,
+              childCount: 0,
+              isExpanded: false,
+              parentId: nodeId,
+            },
+            position: { x: 820, y: subY },
+          });
+
+          edges.push({
+            id: `edge-${nodeId}-${subNodeId}`,
+            source: nodeId,
+            target: subNodeId,
+            animated: sub.status === "Learning",
+            style: { stroke: "#38bdf8", strokeWidth: 1.5 },
+          });
+        });
+
+        runningY += Math.max(140, subtopics.length * 100);
+      } else {
+        runningY += 130;
+      }
     });
 
     return addMindMap({
       technology_id: techId,
-      title: `${tech?.name || "Tech"} Visual Roadmap`,
-      description: `Auto-generated mind map for ${tech?.name}`,
+      title: `${tech?.name || "Technology"} Architecture Mind Map`,
+      description: `Hierarchical concept roadmap for ${tech?.name}`,
       nodes_json: [rootNode, ...childNodes],
       edges_json: edges,
     });
