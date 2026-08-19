@@ -285,45 +285,45 @@ export function HierarchicalTopicTree({ technologyId, accentColor }: Hierarchica
     setIsAddSubModalOpen(false);
   };
 
-  if (tree.length === 0) {
-    return (
-      <div className="p-8 text-center rounded-xl bg-card border border-border/70">
-        <div className="flex justify-center mb-2">
-          <FolderTree className="h-8 w-8 text-muted-foreground opacity-50" />
-        </div>
-        <h4 className="font-semibold text-foreground">No Topics in this Roadmap Yet</h4>
-        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-          Start decomposing this technology into foundational topics, modules, and subtopics.
-        </p>
-        <Button onClick={handleOpenAddRoot} size="sm" className="mt-4 gap-1.5">
-          <Plus className="h-4 w-4" /> Add First Topic
-        </Button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-          <FolderTree className="h-5 w-5 text-primary" /> Topic Hierarchy & Roadmap
-        </h3>
-        <Button onClick={handleOpenAddRoot} size="sm" variant="outline" className="gap-1.5 text-xs">
-          <Plus className="h-3.5 w-3.5" /> Add Root Topic
-        </Button>
-      </div>
+      {tree.length === 0 ? (
+        <div className="p-8 text-center rounded-xl bg-card border border-border/70">
+          <div className="flex justify-center mb-2">
+            <FolderTree className="h-8 w-8 text-muted-foreground opacity-50" />
+          </div>
+          <h4 className="font-semibold text-foreground">No Topics in this Roadmap Yet</h4>
+          <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+            Start decomposing this technology into foundational topics, modules, and subtopics.
+          </p>
+          <Button onClick={handleOpenAddRoot} size="sm" className="mt-4 gap-1.5">
+            <Plus className="h-4 w-4" /> Add First Topic
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <FolderTree className="h-5 w-5 text-primary" /> Topic Hierarchy & Roadmap
+            </h3>
+            <Button onClick={handleOpenAddRoot} size="sm" variant="outline" className="gap-1.5 text-xs">
+              <Plus className="h-3.5 w-3.5" /> Add Root Topic
+            </Button>
+          </div>
 
-      <div className="space-y-2">
-        {tree.map((topic) => (
-          <TreeNodeItem
-            key={topic.id}
-            topic={topic}
-            level={0}
-            onAddSubtopic={handleOpenAddSubtopic}
-            accentColor={accentColor}
-          />
-        ))}
-      </div>
+          <div className="space-y-2">
+            {tree.map((topic) => (
+              <TreeNodeItem
+                key={topic.id}
+                topic={topic}
+                level={0}
+                onAddSubtopic={handleOpenAddSubtopic}
+                accentColor={accentColor}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Add Topic / Subtopic Modal */}
       <Modal
