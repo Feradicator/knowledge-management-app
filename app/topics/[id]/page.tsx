@@ -32,6 +32,7 @@ import {
   ChevronLeft,
   ListTree,
   Sparkles,
+  Check,
 } from "lucide-react";
 import { getStatusColor, getPriorityColor, formatDateString, formatRelativeDate } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
@@ -219,7 +220,7 @@ export default function TopicDetailPage() {
             style={{ borderTop: `5px solid ${tech?.color || "#6366f1"}` }}
           >
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-              <div className="space-y-2 flex-1">
+              <div className="space-y-3 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span
                     className="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-sm"
@@ -228,17 +229,47 @@ export default function TopicDetailPage() {
                     {tech?.name || "General"}
                   </span>
 
-                  {/* Status Select */}
-                  <select
-                    value={topic.status}
-                    onChange={(e) => updateTopic(topic.id, { status: e.target.value as any })}
-                    className={`px-2.5 py-1 rounded-full text-xs font-bold border cursor-pointer ${statusColor.bg} ${statusColor.text} ${statusColor.border} bg-transparent outline-none`}
+                  {/* Completed Checkbox Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const isCompleted = topic.status === "Completed" || topic.progress === 100;
+                      if (isCompleted) {
+                        updateTopic(topic.id, {
+                          status: "Not Started",
+                          progress: 0,
+                          completed_at: null,
+                        });
+                      } else {
+                        updateTopic(topic.id, {
+                          status: "Completed",
+                          progress: 100,
+                          completed_at: new Date().toISOString(),
+                        });
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
+                      topic.status === "Completed" || topic.progress === 100
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                        : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
+                    }`}
+                    title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
                   >
-                    <option value="Not Started" className="bg-card text-foreground">Not Started</option>
-                    <option value="Learning" className="bg-card text-foreground">Learning</option>
-                    <option value="Completed" className="bg-card text-foreground">Completed</option>
-                    <option value="Paused" className="bg-card text-foreground">Paused</option>
-                  </select>
+                    <div
+                      className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+                        topic.status === "Completed" || topic.progress === 100
+                          ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                          : "border-muted-foreground/50 bg-background"
+                      }`}
+                    >
+                      {(topic.status === "Completed" || topic.progress === 100) && (
+                        <Check className="h-3 w-3 stroke-[3]" />
+                      )}
+                    </div>
+                    <span>
+                      {topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : "Mark as Completed"}
+                    </span>
+                  </button>
 
                   {/* Priority Select */}
                   <select
@@ -263,12 +294,12 @@ export default function TopicDetailPage() {
                 </h1>
 
                 <p className="text-sm text-muted-foreground">
-                  {topic.description || "Master key implementation details, core fundamentals, and technical concepts."}
+                  {topic.description || "Document your code snippets, command flags, and study notes for this topic."}
                 </p>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-start">
+              <div className="flex items-center gap-2 self-start flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -293,25 +324,6 @@ export default function TopicDetailPage() {
               </div>
             </div>
 
-            {/* Interactive Progress Bar & Slider */}
-            <div className="mt-6 pt-6 border-t border-border/50 space-y-2">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <BookOpen className="h-4 w-4 text-primary" /> Mastery Progress:
-                </span>
-                <span className="font-extrabold text-base text-foreground">{topic.progress}%</span>
-              </div>
-
-              <Slider
-                value={topic.progress}
-                onChange={(val) => updateTopicProgress(topic.id, val)}
-                accentColor={tech?.color}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Drag slider to update mastery progress. Setting to 100% automatically marks topic as Completed!
-              </p>
-            </div>
-
             {/* Timestamps */}
             <div className="mt-4 pt-3 border-t border-border/40 flex flex-wrap gap-4 text-xs text-muted-foreground">
               {topic.last_studied_at && (
@@ -325,29 +337,24 @@ export default function TopicDetailPage() {
             </div>
           </div>
 
-          {/* Checklist & Attachments */}
+          {/* Notes & Attachments Grid */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Checklist & Tiptap Notes */}
-            <div className="xl:col-span-2 space-y-6">
-              <ChecklistManager topicId={topic.id} accentColor={tech?.color} />
-
-              {/* Rich Notes Section with Tiptap Editor */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-primary" /> Topic Notes & Deep-Dive Insights
-                  </h3>
-                  <span className="text-xs text-muted-foreground">Autosaved to database</span>
-                </div>
-
-                <Card className="p-4 bg-card border border-border/80 shadow-xs">
-                  <TiptapEditor
-                    initialContent={topicNote?.content_html || `<h2>${topic.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`}
-                    onSave={handleSaveNote}
-                    placeholder="Write detailed notes, code blocks, or checklists..."
-                  />
-                </Card>
+            {/* Left 2 Cols: Notes with Tiptap Editor */}
+            <div className="xl:col-span-2 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" /> Topic Notes & Deep-Dive Insights
+                </h3>
+                <span className="text-xs text-muted-foreground">Autosaved to database</span>
               </div>
+
+              <Card className="p-4 bg-card border border-border/80 shadow-xs">
+                <TiptapEditor
+                  initialContent={topicNote?.content_html || `<h2>${topic.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`}
+                  onSave={handleSaveNote}
+                  placeholder="Write detailed notes, code blocks, or checklists..."
+                />
+              </Card>
             </div>
 
             {/* Right 1 Col: Mind Maps & Attachments */}

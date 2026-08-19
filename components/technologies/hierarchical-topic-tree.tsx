@@ -23,6 +23,7 @@ import {
   Star,
   FolderTree,
   FileText,
+  Check,
 } from "lucide-react";
 import { getStatusColor, getPriorityColor } from "@/lib/utils";
 
@@ -123,19 +124,50 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
           </div>
         </div>
 
-        {/* Right Progress Control & Actions */}
+        {/* Right Completed Checkbox & Actions */}
         <div className="flex items-center gap-3 shrink-0">
-          {/* Progress Slider & Value */}
-          <div className="hidden sm:flex items-center gap-2 w-36">
-            <Slider
-              value={topic.progress}
-              onChange={(val) => updateTopicProgress(topic.id, val)}
-              accentColor={accentColor}
-            />
-            <span className="font-bold text-xs w-9 text-right text-foreground">
-              {topic.progress}%
+          {/* Completed Checkbox */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const isCompleted = topic.status === "Completed" || topic.progress === 100;
+              if (isCompleted) {
+                updateTopic(topic.id, {
+                  status: "Not Started",
+                  progress: 0,
+                  completed_at: null,
+                });
+              } else {
+                updateTopic(topic.id, {
+                  status: "Completed",
+                  progress: 100,
+                  completed_at: new Date().toISOString(),
+                });
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
+              topic.status === "Completed" || topic.progress === 100
+                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
+            }`}
+            title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+          >
+            <div
+              className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+                topic.status === "Completed" || topic.progress === 100
+                  ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                  : "border-muted-foreground/50 bg-background"
+              }`}
+            >
+              {(topic.status === "Completed" || topic.progress === 100) && (
+                <Check className="h-3 w-3 stroke-[3]" />
+              )}
+            </div>
+            <span className="text-[11px] font-semibold hidden sm:inline">
+              {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
             </span>
-          </div>
+          </button>
 
           {/* Quick Actions */}
           <div className="flex items-center gap-1">

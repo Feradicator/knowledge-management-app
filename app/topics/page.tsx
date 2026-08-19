@@ -21,6 +21,7 @@ import {
   Filter,
   CheckSquare,
   Trash2,
+  Check,
 } from "lucide-react";
 import { Topic, TopicStatus, TopicPriority } from "@/types/database";
 import { getStatusColor, getPriorityColor, formatRelativeDate } from "@/lib/utils";
@@ -243,18 +244,49 @@ export default function TopicsCatalogPage() {
                   )}
                 </div>
 
-                {/* Right Progress Slider & Actions */}
-                <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-border/50">
-                  <div className="flex items-center gap-3 w-44 sm:w-52">
-                    <Slider
-                      value={topic.progress}
-                      onChange={(val) => updateTopicProgress(topic.id, val)}
-                      accentColor={tech?.color}
-                    />
-                    <span className="font-bold text-xs w-10 text-right text-foreground">
-                      {topic.progress}%
+                {/* Right Completed Checkbox & Actions */}
+                <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-border/50">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const isCompleted = topic.status === "Completed" || topic.progress === 100;
+                      if (isCompleted) {
+                        updateTopic(topic.id, {
+                          status: "Not Started",
+                          progress: 0,
+                          completed_at: null,
+                        });
+                      } else {
+                        updateTopic(topic.id, {
+                          status: "Completed",
+                          progress: 100,
+                          completed_at: new Date().toISOString(),
+                        });
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
+                      topic.status === "Completed" || topic.progress === 100
+                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                        : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
+                    }`}
+                    title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+                  >
+                    <div
+                      className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+                        topic.status === "Completed" || topic.progress === 100
+                          ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                          : "border-muted-foreground/50 bg-background"
+                      }`}
+                    >
+                      {(topic.status === "Completed" || topic.progress === 100) && (
+                        <Check className="h-3 w-3 stroke-[3]" />
+                      )}
+                    </div>
+                    <span className="text-[11px] font-semibold">
+                      {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
                     </span>
-                  </div>
+                  </button>
 
                   <div className="flex items-center gap-1">
                     <button

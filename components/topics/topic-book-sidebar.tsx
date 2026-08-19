@@ -129,14 +129,12 @@ export function TopicBookSidebar({
                         )}
                       />
                     ) : (
-                      <span
+                      <div
                         className={cn(
-                          "text-[10px] font-mono",
-                          isRootActive ? "text-white/80" : "text-muted-foreground"
+                          "h-2 w-2 rounded-full",
+                          isRootActive ? "bg-white/50" : "bg-muted-foreground/30"
                         )}
-                      >
-                        {rootTopic.progress}%
-                      </span>
+                      />
                     )}
                   </div>
                 </Link>
@@ -171,9 +169,7 @@ export function TopicBookSidebar({
                             {isSubCompleted ? (
                               <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                             ) : (
-                              <span className="text-[9px] opacity-75 font-mono">
-                                {subTopic.progress}%
-                              </span>
+                              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
                             )}
                           </div>
                         </Link>
