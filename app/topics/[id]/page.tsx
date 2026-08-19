@@ -214,126 +214,89 @@ export default function TopicDetailPage() {
 
         {/* Right Col: Topic Detail Content & Editor */}
         <div className={tech ? "lg:col-span-3 space-y-6" : "lg:col-span-4 space-y-6"}>
-          {/* Main Topic Card Header */}
+          {/* Sleek Compact Header */}
           <div
-            className="p-6 sm:p-8 rounded-2xl bg-card border border-border/80 shadow-sm relative overflow-hidden"
-            style={{ borderTop: `5px solid ${tech?.color || "#6366f1"}` }}
+            className="px-4 py-3 rounded-xl bg-card border border-border/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            style={{ borderLeft: `4px solid ${tech?.color || "#6366f1"}` }}
           >
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-              <div className="space-y-3 flex-1">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <span
-                    className="px-2.5 py-0.5 rounded-md text-xs font-bold text-white shadow-sm"
-                    style={{ backgroundColor: tech?.color || "#6366f1" }}
-                  >
-                    {tech?.name || "General"}
-                  </span>
+            <div className="flex items-center gap-3 min-w-0 flex-wrap">
+              <span
+                className="px-2 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs"
+                style={{ backgroundColor: tech?.color || "#6366f1" }}
+              >
+                {tech?.name || "General"}
+              </span>
 
-                  {/* Completed Checkbox Toggle */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isCompleted = topic.status === "Completed" || topic.progress === 100;
-                      if (isCompleted) {
-                        updateTopic(topic.id, {
-                          status: "Not Started",
-                          progress: 0,
-                          completed_at: null,
-                        });
-                      } else {
-                        updateTopic(topic.id, {
-                          status: "Completed",
-                          progress: 100,
-                          completed_at: new Date().toISOString(),
-                        });
-                      }
-                    }}
-                    className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
-                      topic.status === "Completed" || topic.progress === 100
-                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                        : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
-                    }`}
-                    title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
-                  >
-                    <div
-                      className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
-                        topic.status === "Completed" || topic.progress === 100
-                          ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
-                          : "border-muted-foreground/50 bg-background"
-                      }`}
-                    >
-                      {(topic.status === "Completed" || topic.progress === 100) && (
-                        <Check className="h-3 w-3 stroke-[3]" />
-                      )}
-                    </div>
-                    <span>
-                      {topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : "Mark as Completed"}
-                    </span>
-                  </button>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
+                {topic.name}
+              </h1>
 
-                  {/* Priority Select */}
-                  <select
-                    value={topic.priority}
-                    onChange={(e) => updateTopic(topic.id, { priority: e.target.value as any })}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold border cursor-pointer ${priorityColor.bg} ${priorityColor.text} ${priorityColor.border} bg-transparent outline-none`}
-                  >
-                    <option value="High" className="bg-card text-foreground">High Priority</option>
-                    <option value="Medium" className="bg-card text-foreground">Medium Priority</option>
-                    <option value="Low" className="bg-card text-foreground">Low Priority</option>
-                  </select>
-
-                  {topic.is_favorite && (
-                    <Badge variant="warning" className="gap-1">
-                      <Star className="h-3 w-3 fill-amber-400" /> Favorited
-                    </Badge>
+              {/* Completed Checkbox Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  const isCompleted = topic.status === "Completed" || topic.progress === 100;
+                  if (isCompleted) {
+                    updateTopic(topic.id, {
+                      status: "Not Started",
+                      progress: 0,
+                      completed_at: null,
+                    });
+                  } else {
+                    updateTopic(topic.id, {
+                      status: "Completed",
+                      progress: 100,
+                      completed_at: new Date().toISOString(),
+                    });
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
+                  topic.status === "Completed" || topic.progress === 100
+                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/30"
+                }`}
+                title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+              >
+                <div
+                  className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-all ${
+                    topic.status === "Completed" || topic.progress === 100
+                      ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                      : "border-muted-foreground/50 bg-background"
+                  }`}
+                >
+                  {(topic.status === "Completed" || topic.progress === 100) && (
+                    <Check className="h-2.5 w-2.5 stroke-[3]" />
                   )}
                 </div>
-
-                <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-                  {topic.name}
-                </h1>
-
-                <p className="text-sm text-muted-foreground">
-                  {topic.description || "Document your code snippets, command flags, and study notes for this topic."}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 self-start flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleFavoriteTopic(topic.id)}
-                  className="gap-1.5"
-                >
-                  <Star
-                    className={`h-4 w-4 ${
-                      topic.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                    }`}
-                  />
-                  <span className="hidden sm:inline">{topic.is_favorite ? "Favorited" : "Favorite"}</span>
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setIsLogSessionOpen(true)}
-                  className="gap-1.5 shadow-sm shadow-primary/20"
-                >
-                  <Clock className="h-4 w-4" />
-                  <span>Log Study Time</span>
-                </Button>
-              </div>
+                <span className="text-[11px]">
+                  {topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : "Mark Done"}
+                </span>
+              </button>
             </div>
 
-            {/* Timestamps */}
-            <div className="mt-4 pt-3 border-t border-border/40 flex flex-wrap gap-4 text-xs text-muted-foreground">
-              {topic.last_studied_at && (
-                <span>Last studied: <strong>{formatRelativeDate(topic.last_studied_at)}</strong></span>
-              )}
-              {topic.completed_at && (
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  Completed on: <strong>{formatDateString(topic.completed_at)}</strong>
-                </span>
-              )}
+            {/* Actions: Favorite & Log Study Time */}
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleFavoriteTopic(topic.id)}
+                className="gap-1 text-xs h-8"
+              >
+                <Star
+                  className={`h-3.5 w-3.5 ${
+                    topic.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">{topic.is_favorite ? "Favorited" : "Favorite"}</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setIsLogSessionOpen(true)}
+                className="gap-1 text-xs h-8 shadow-xs"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>Log Time</span>
+              </Button>
             </div>
           </div>
 
