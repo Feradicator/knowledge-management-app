@@ -18,7 +18,7 @@ import {
   Layers,
   FileText,
 } from "lucide-react";
-import { cn, getStatusColor } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface TopicBookSidebarProps {
   technology: Technology;
@@ -33,7 +33,90 @@ export function TopicBookSidebar({
   activeTopicId,
   className,
 }: TopicBookSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  // Recursive renderer for any depth of topics and subtopics
+  const renderTopicNode = (
+    topicNode: Topic,
+    level: number,
+    prefix: string
+  ): React.ReactNode => {
+    const isActive = topicNode.id === activeTopicId;
+    const hasSubtopics = Boolean(
+      topicNode.subtopics && topicNode.subtopics.length > 0
+    );
+    const isCompleted =
+      topicNode.status === "Completed" || topicNode.progress === 100;
+
+    return (
+      <div key={topicNode.id} className="space-y-0.5">
+        <Link
+          href={`/topics/${topicNode.id}`}
+          className={cn(
+            "flex items-center justify-between gap-2 rounded-xl transition-all group select-none",
+            level === 0
+              ? "px-2.5 py-2 text-xs font-semibold"
+              : level === 1
+              ? "px-2 py-1.5 text-[11px] font-medium"
+              : "px-2 py-1 text-[11px] font-normal",
+            isActive
+              ? level === 0
+                ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                : "bg-primary/20 text-primary border border-primary/40 font-bold"
+              : "text-foreground/90 hover:bg-secondary/80 hover:text-foreground"
+          )}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span
+              className={cn(
+                "font-mono shrink-0",
+                level === 0
+                  ? "text-[10px] px-1.5 py-0.5 rounded"
+                  : "text-[9px] opacity-70",
+                isActive && level === 0
+                  ? "bg-white/20 text-white"
+                  : level === 0
+                  ? "bg-secondary text-muted-foreground group-hover:text-foreground"
+                  : ""
+              )}
+            >
+              {prefix}
+            </span>
+            <span className="truncate">{topicNode.name}</span>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            {isCompleted ? (
+              <CheckCircle2
+                className={cn(
+                  "h-3.5 w-3.5",
+                  isActive && level === 0 ? "text-white" : "text-emerald-500"
+                )}
+              />
+            ) : (
+              <div
+                className={cn(
+                  level === 0 ? "h-2 w-2 rounded-full" : "h-1.5 w-1.5 rounded-full",
+                  isActive && level === 0 ? "bg-white/50" : "bg-muted-foreground/30"
+                )}
+              />
+            )}
+          </div>
+        </Link>
+
+        {/* Recursive Child Subtopics of Any Depth */}
+        {hasSubtopics && (
+          <div className="pl-3 space-y-0.5 border-l-2 border-border/40 ml-3 my-0.5">
+            {topicNode.subtopics!.map((subTopic, subIdx) =>
+              renderTopicNode(
+                subTopic,
+                level + 1,
+                level === 0 ? `${parseInt(prefix)}.0.${subIdx + 1}` : `${prefix}.${subIdx + 1}`
+              )
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -80,106 +163,16 @@ export function TopicBookSidebar({
         </span>
       </div>
 
-      {/* Hierarchical Chapter List */}
+      {/* Hierarchical Chapter List with Full Depth Support */}
       <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1 custom-scrollbar">
         {topicsTree.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4 text-center">
             No topics in this roadmap yet.
           </p>
         ) : (
-          topicsTree.map((rootTopic, rootIdx) => {
-            const isRootActive = rootTopic.id === activeTopicId;
-            const hasSubtopics = Boolean(
-              rootTopic.subtopics && rootTopic.subtopics.length > 0
-            );
-            const isCompleted = rootTopic.status === "Completed" || rootTopic.progress === 100;
-
-            return (
-              <div key={rootTopic.id} className="space-y-0.5">
-                {/* Root Topic Row */}
-                <Link
-                  href={`/topics/${rootTopic.id}`}
-                  className={cn(
-                    "flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all group",
-                    isRootActive
-                      ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                      : "text-foreground/90 hover:bg-secondary/80 hover:text-foreground"
-                  )}
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className={cn(
-                        "text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0",
-                        isRootActive
-                          ? "bg-white/20 text-white"
-                          : "bg-secondary text-muted-foreground group-hover:text-foreground"
-                      )}
-                    >
-                      {rootIdx + 1}.0
-                    </span>
-                    <span className="truncate">{rootTopic.name}</span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {isCompleted ? (
-                      <CheckCircle2
-                        className={cn(
-                          "h-3.5 w-3.5",
-                          isRootActive ? "text-white" : "text-emerald-500"
-                        )}
-                      />
-                    ) : (
-                      <div
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          isRootActive ? "bg-white/50" : "bg-muted-foreground/30"
-                        )}
-                      />
-                    )}
-                  </div>
-                </Link>
-
-                {/* Subtopics List */}
-                {hasSubtopics && (
-                  <div className="pl-4 space-y-0.5 border-l-2 border-border/40 ml-3.5 my-0.5">
-                    {rootTopic.subtopics!.map((subTopic, subIdx) => {
-                      const isSubActive = subTopic.id === activeTopicId;
-                      const isSubCompleted =
-                        subTopic.status === "Completed" || subTopic.progress === 100;
-
-                      return (
-                        <Link
-                          key={subTopic.id}
-                          href={`/topics/${subTopic.id}`}
-                          className={cn(
-                            "flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-all group",
-                            isSubActive
-                              ? "bg-primary/20 text-primary border border-primary/40 font-bold"
-                              : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                          )}
-                        >
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="text-[9px] font-mono opacity-60 shrink-0">
-                              {rootIdx + 1}.{subIdx + 1}
-                            </span>
-                            <span className="truncate">{subTopic.name}</span>
-                          </div>
-
-                          <div className="shrink-0">
-                            {isSubCompleted ? (
-                              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                            ) : (
-                              <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
-                            )}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })
+          topicsTree.map((rootTopic, rootIdx) =>
+            renderTopicNode(rootTopic, 0, `${rootIdx + 1}.0`)
+          )
         )}
       </div>
 
