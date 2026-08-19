@@ -7,31 +7,23 @@ import { useLearningStore } from "@/lib/store/learning-store";
 import { TiptapEditor } from "@/components/notes/tiptap-editor";
 import { TopicBookSidebar } from "@/components/topics/topic-book-sidebar";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowLeft,
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
   Clock,
   Star,
   Network,
-  FolderArchive,
   FileText,
-  Plus,
   ChevronRight,
   ChevronLeft,
-  ListTree,
-  Sparkles,
   Check,
   Edit2,
   Eye,
 } from "lucide-react";
-import { getStatusColor, getPriorityColor, formatDateString, formatRelativeDate, cn } from "@/lib/utils";
+import { getStatusColor, cn } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
 import { PdfViewerModal } from "@/components/files/pdf-viewer-modal";
 import { Topic } from "@/types/database";
@@ -53,7 +45,6 @@ export default function ContinuousTopicBookPage() {
     addNote,
     updateNote,
     addLearningSession,
-    createMindMapFromTopic,
   } = useLearningStore();
 
   const currentTopic = getTopicById(initialTopicId);
@@ -79,6 +70,9 @@ export default function ContinuousTopicBookPage() {
   const [activeTopicId, setActiveTopicId] = useState<string>(initialTopicId);
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
 
+  // Dedicated reference to the scrollable right container
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   // Study log modal
   const [isLogSessionOpen, setIsLogSessionOpen] = useState(false);
   const [sessionTopic, setSessionTopic] = useState<Topic | null>(currentTopic || null);
@@ -88,43 +82,40 @@ export default function ContinuousTopicBookPage() {
   const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
 
-  // Initial scroll into the requested topic section on mount
+  // Initial scroll into the requested topic section inside the scrollable container
   useEffect(() => {
-    if (initialTopicId) {
+    if (initialTopicId && scrollContainerRef.current) {
       const timer = setTimeout(() => {
         const targetElement = document.getElementById(`topic-section-${initialTopicId}`);
         if (targetElement) {
           targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
         }
-      }, 150);
+      }, 120);
       return () => clearTimeout(timer);
     }
   }, [initialTopicId]);
 
-  // ScrollSpy with IntersectionObserver to track and highlight the currently active chapter
+  // ScrollSpy with IntersectionObserver attached to the right scrollable container
   useEffect(() => {
-    if (flatOrderedTopics.length === 0) return;
+    if (flatOrderedTopics.length === 0 || !scrollContainerRef.current) return;
 
     const observerCallback: IntersectionObserverCallback = (entries) => {
-      // Find the entry that has the highest intersection or is visible near top of screen
       const visibleEntries = entries.filter((e) => e.isIntersecting);
       if (visibleEntries.length > 0) {
-        // Sort by distance to top of viewport
         visibleEntries.sort((a, b) => {
           return Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top);
         });
         const topTopicId = visibleEntries[0].target.getAttribute("data-topic-id");
         if (topTopicId && topTopicId !== activeTopicId) {
           setActiveTopicId(topTopicId);
-          // Update URL without page reload
           window.history.replaceState(null, "", `/topics/${topTopicId}`);
         }
       }
     };
 
     const observer = new IntersectionObserver(observerCallback, {
-      root: null,
-      rootMargin: "-80px 0px -60% 0px",
+      root: scrollContainerRef.current,
+      rootMargin: "-40px 0px -50% 0px",
       threshold: [0, 0.1, 0.3, 0.5, 0.8],
     });
 
@@ -204,9 +195,9 @@ export default function ContinuousTopicBookPage() {
   };
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* Persistent Top Navigation Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/80 sticky top-0 bg-background/95 backdrop-blur-md z-30 pt-1">
+    <div data-page-container="full-height" className="h-full flex flex-col overflow-hidden min-h-0">
+      {/* Persistent Top Navigation Bar (Fixed in place) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/80 shrink-0 bg-background z-20">
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href="/technologies"
@@ -273,29 +264,33 @@ export default function ContinuousTopicBookPage() {
         </div>
       </div>
 
-      {/* Main 2-Column Book Layout: Left Sticky TOC + Right Continuous Document Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-        {/* Left Col: Sticky Interactive Table of Contents with dynamic ScrollSpy */}
+      {/* Main 2-Column Book Layout: Left Fixed TOC + Right Independent Scrolling Feed */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-6 pt-3 items-stretch overflow-hidden">
+        {/* Left Col: Fixed Table of Contents with Independent Internal Scroll */}
         {tech && (
-          <div className="hidden lg:block lg:col-span-1 sticky top-16">
+          <div className="hidden lg:flex lg:w-72 lg:shrink-0 h-full flex-col overflow-hidden">
             <TopicBookSidebar
               technology={tech}
               topicsTree={topicsTree}
               activeTopicId={activeTopicId}
               onTopicClick={handleScrollToTopic}
+              className="h-full flex flex-col overflow-hidden"
             />
           </div>
         )}
 
-        {/* Right Col: Continuous Topics Document Feed */}
-        <div className={tech ? "lg:col-span-3 space-y-12" : "lg:col-span-4 space-y-12"}>
+        {/* Right Col: ONLY THIS SCROLLS VERTICALLY */}
+        <div
+          ref={scrollContainerRef}
+          id="topics-scroll-container"
+          className="flex-1 min-w-0 h-full overflow-y-auto pr-3 custom-scrollbar space-y-10 pb-16"
+        >
           {flatOrderedTopics.map((topicItem, topicIdx) => {
             const isCurrentActive = topicItem.id === activeTopicId;
             const noteForTopic = notes.find((n) => n.topic_id === topicItem.id);
             const isEditingThis = editingTopicId === topicItem.id;
             const itemMindMaps = mindMaps.filter((m) => m.topic_id === topicItem.id);
             const itemFiles = files.filter((f) => f.topic_id === topicItem.id);
-            const statusCol = getStatusColor(topicItem.status);
             const isCompleted = topicItem.status === "Completed" || topicItem.progress === 100;
 
             return (
@@ -303,7 +298,7 @@ export default function ContinuousTopicBookPage() {
                 key={topicItem.id}
                 id={`topic-section-${topicItem.id}`}
                 data-topic-id={topicItem.id}
-                className="scroll-mt-20 space-y-4 pt-2 border-b border-border/40 pb-12 last:border-b-0 transition-all"
+                className="scroll-mt-6 space-y-4 pt-2 border-b border-border/40 pb-10 last:border-b-0 transition-all"
               >
                 {/* Topic Header Banner */}
                 <div

@@ -202,3 +202,8 @@
 .react-flow__controls button:hover {
   background-color: hsl(var(--accent)) !important;
 }
+
+main:has([data-page-container="full-height"]) {
+  overflow: hidden !important;
+  padding-bottom: 0.5rem !important;
+}

@@ -181,7 +181,7 @@ export function TopicBookSidebar({
       </div>
 
       {/* Hierarchical Chapter List with Full Depth Support */}
-      <div className="space-y-1 overflow-y-auto max-h-[calc(100vh-280px)] pr-1 custom-scrollbar">
+      <div className="flex-1 min-h-0 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
         {topicsTree.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4 text-center">
             No topics in this roadmap yet.
