@@ -35,7 +35,7 @@ import {
 import { formatBytes, formatRelativeDate } from "@/lib/utils";
 
 export default function FilesPage() {
-  const { files, technologies, topics, addFile, deleteFile, updateFile } = useLearningStore();
+  const { files, technologies, topics, addFile, deleteFile, updateFile, isOwner, requireOwner } = useLearningStore();
 
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,7 +200,15 @@ export default function FilesPage() {
             Upload PDFs, documents, architecture diagrams, handwritten note photos, and technical cheat sheets.
           </p>
         </div>
-        <Button onClick={() => { resetUploadForm(); setIsUploadOpen(true); }} className="gap-2 shadow-sm shadow-primary/25">
+        <Button
+          onClick={() => {
+            if (requireOwner("upload documents or notes")) {
+              resetUploadForm();
+              setIsUploadOpen(true);
+            }
+          }}
+          className="gap-2 shadow-sm shadow-primary/25"
+        >
           <Upload className="h-4 w-4" /> Upload Document / Note Scan
         </Button>
       </div>
@@ -339,7 +347,15 @@ export default function FilesPage() {
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 Upload PDFs, cheat sheets, handwritten sketches, or documentation files directly from your computer.
               </p>
-              <Button onClick={() => { resetUploadForm(); setIsUploadOpen(true); }} className="mt-4 gap-2">
+              <Button
+                onClick={() => {
+                  if (requireOwner("upload documents or notes")) {
+                    resetUploadForm();
+                    setIsUploadOpen(true);
+                  }
+                }}
+                className="mt-4 gap-2"
+              >
                 <Upload className="h-4 w-4" /> Upload Document
               </Button>
             </Card>
@@ -407,7 +423,9 @@ export default function FilesPage() {
 
                       <button
                         onClick={() => {
-                          if (confirm(`Delete file '${file.filename}'?`)) deleteFile(file.id);
+                          if (requireOwner("delete files")) {
+                            if (confirm(`Delete file '${file.filename}'?`)) deleteFile(file.id);
+                          }
                         }}
                         className="text-muted-foreground hover:text-destructive p-1"
                         title="Delete file"

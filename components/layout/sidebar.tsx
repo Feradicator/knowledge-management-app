@@ -27,7 +27,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { technologies, topics, notes, mindMaps, stats } = useLearningStore();
+  const { technologies, topics, notes, mindMaps, stats, isOwner, currentUser, setIsAuthModalOpen } = useLearningStore();
 
   const favoritesCount =
     technologies.filter((t) => t.is_favorite).length +
@@ -174,16 +174,51 @@ export function Sidebar() {
         </nav>
       </div>
 
-      {/* Bottom Progress Card */}
+      {/* Bottom Progress & Auth Status Card */}
       {!isCollapsed && (
-        <div className="mt-auto p-3 rounded-xl bg-secondary/60 border border-border/50 text-xs">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-semibold text-foreground">Active Streak</span>
-            <span className="text-primary font-bold">{stats.streakDays} Days 🔥</span>
+        <div className="mt-auto space-y-2">
+          {/* Active Streak */}
+          <div className="p-3 rounded-xl bg-secondary/60 border border-border/50 text-xs">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-semibold text-foreground">Active Streak</span>
+              <span className="text-primary font-bold">{stats.streakDays} Days 🔥</span>
+            </div>
+            <p className="text-muted-foreground text-[11px]">
+              {stats.completedTopics} of {stats.totalTopics} topics mastered
+            </p>
           </div>
-          <p className="text-muted-foreground text-[11px]">
-            {stats.completedTopics} of {stats.totalTopics} topics mastered
-          </p>
+
+          {/* User Role & Auth Card */}
+          <div className="p-2.5 rounded-xl bg-card border border-border/70 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <div
+                className={cn(
+                  "h-7 w-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0",
+                  isOwner
+                    ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+                    : "bg-secondary text-muted-foreground border border-border"
+                )}
+              >
+                {isOwner ? "👑" : "👁️"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-foreground truncate">
+                  {isOwner ? "Owner Mode" : "Viewer Mode"}
+                </p>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {isOwner ? (currentUser?.email || "Full Edit Access") : "Read Only"}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="text-[11px] font-semibold text-primary hover:underline shrink-0 cursor-pointer px-1 py-0.5"
+            >
+              {isOwner ? "Manage" : "Sign In"}
+            </button>
+          </div>
         </div>
       )}
     </div>

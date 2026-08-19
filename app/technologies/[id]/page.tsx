@@ -41,6 +41,8 @@ export default function TechnologyDetailPage() {
     toggleFavoriteTechnology,
     deleteTechnology,
     createMindMapFromTechnology,
+    isOwner,
+    requireOwner,
   } = useLearningStore();
 
   const tech = getTechnologyById(id);
@@ -74,6 +76,7 @@ export default function TechnologyDetailPage() {
   };
 
   const handleDelete = () => {
+    if (!requireOwner("delete this technology")) return;
     if (confirm(`Delete technology '${tech.name}' and all associated topics?`)) {
       deleteTechnology(tech.id);
       router.push("/technologies");

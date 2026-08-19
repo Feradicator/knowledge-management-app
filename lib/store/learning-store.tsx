@@ -60,6 +60,18 @@ interface LearningStoreContextType {
   activityLogs: ActivityLogItem[];
   stats: DashboardStats;
 
+  // Auth & Access Control
+  currentUser: any | null;
+  isOwner: boolean;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  authModalMessage: string;
+  setAuthModalMessage: (msg: string) => void;
+  requireOwner: (actionName?: string) => boolean;
+  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signOut: () => Promise<void>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error?: string; success?: string }>;
+
   // Technology Actions
   addTechnology: (data: Partial<Technology>) => Technology;
   updateTechnology: (id: string, data: Partial<Technology>) => void;
@@ -128,7 +140,130 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
   const [learningSessions, setLearningSessions] = useState<LearningSession[]>([]);
   const [activityLogs, setActivityLogs] = useState<ActivityLogItem[]>([]);
 
+  // Auth & Permissions State
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMessage, setAuthModalMessage] = useState<string>("");
+
   const supabase = useMemo(() => createClient(), []);
+
+  // Sync Supabase Auth State
+  useEffect(() => {
+    if (supabase) {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setCurrentUser(session.user);
+          setIsOwner(true);
+        } else {
+          const localOwner = typeof window !== "undefined" ? localStorage.getItem("knowledgeos_is_owner") === "true" : false;
+          setIsOwner(localOwner);
+          if (localOwner) {
+            setCurrentUser({ email: "owner@knowledgeos.vault", user_metadata: { full_name: "Vault Owner" } });
+          }
+        }
+      });
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setCurrentUser(session.user);
+          setIsOwner(true);
+        } else {
+          const localOwner = typeof window !== "undefined" ? localStorage.getItem("knowledgeos_is_owner") === "true" : false;
+          setIsOwner(localOwner);
+          if (localOwner) {
+            setCurrentUser({ email: "owner@knowledgeos.vault", user_metadata: { full_name: "Vault Owner" } });
+          } else {
+            setCurrentUser(null);
+          }
+        }
+      });
+
+      return () => subscription.unsubscribe();
+    } else {
+      const localOwner = typeof window !== "undefined" ? localStorage.getItem("knowledgeos_is_owner") === "true" : false;
+      setIsOwner(localOwner);
+      if (localOwner) {
+        setCurrentUser({ email: "owner@knowledgeos.vault", user_metadata: { full_name: "Vault Owner" } });
+      }
+    }
+  }, [supabase]);
+
+  const requireOwner = useCallback((actionName?: string): boolean => {
+    if (isOwner) return true;
+    setAuthModalMessage(actionName ? `Owner sign-in required to ${actionName}.` : "Owner authentication required.");
+    setIsAuthModalOpen(true);
+    return false;
+  }, [isOwner]);
+
+  const signIn = async (email: string, password: string): Promise<{ error?: string }> => {
+    if (supabase) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        return { error: error.message };
+      }
+      setCurrentUser(data.user);
+      setIsOwner(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("knowledgeos_is_owner", "true");
+      }
+      setIsAuthModalOpen(false);
+      return {};
+    } else {
+      if (password.length >= 4) {
+        setIsOwner(true);
+        setCurrentUser({ email, user_metadata: { full_name: email.split("@")[0] } });
+        if (typeof window !== "undefined") {
+          localStorage.setItem("knowledgeos_is_owner", "true");
+        }
+        setIsAuthModalOpen(false);
+        return {};
+      }
+      return { error: "Password must be at least 4 characters." };
+    }
+  };
+
+  const signUp = async (email: string, password: string, fullName?: string): Promise<{ error?: string; success?: string }> => {
+    if (supabase) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName } },
+      });
+      if (error) {
+        return { error: error.message };
+      }
+      if (data.session) {
+        setCurrentUser(data.user);
+        setIsOwner(true);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("knowledgeos_is_owner", "true");
+        }
+        setIsAuthModalOpen(false);
+        return { success: "Account created and logged in as Owner!" };
+      }
+      return { success: "Account created! You can now sign in." };
+    } else {
+      setIsOwner(true);
+      setCurrentUser({ email, user_metadata: { full_name: fullName || email.split("@")[0] } });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("knowledgeos_is_owner", "true");
+      }
+      setIsAuthModalOpen(false);
+      return { success: "Owner credentials created and activated!" };
+    }
+  };
+
+  const signOut = async (): Promise<void> => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setCurrentUser(null);
+    setIsOwner(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("knowledgeos_is_owner");
+    }
+  };
 
   // Safe helper to run Supabase calls in background without Postgrest typing issues
   const runSupabase = useCallback((operation: (client: NonNullable<typeof supabase>) => Promise<any>) => {
@@ -1245,6 +1380,16 @@ export function LearningStoreProvider({ children }: { children: React.ReactNode 
         learningSessions,
         activityLogs,
         stats,
+        currentUser,
+        isOwner,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        authModalMessage,
+        setAuthModalMessage,
+        requireOwner,
+        signIn,
+        signOut,
+        signUp,
         addTechnology,
         updateTechnology,
         deleteTechnology,

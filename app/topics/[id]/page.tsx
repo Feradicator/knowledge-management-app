@@ -57,6 +57,8 @@ export default function ContinuousTopicBookPage() {
     addNote,
     updateNote,
     addLearningSession,
+    isOwner,
+    requireOwner,
   } = useLearningStore();
 
   const readerPrefs = useReaderPreferences();
@@ -425,6 +427,7 @@ export default function ContinuousTopicBookPage() {
                     <button
                       type="button"
                       onClick={() => {
+                        if (!requireOwner("update topic completion progress")) return;
                         if (isCompleted) {
                           updateTopic(topicItem.id, {
                             status: "Not Started",
@@ -476,7 +479,11 @@ export default function ContinuousTopicBookPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditingTopicId(topicItem.id)}
+                        onClick={() => {
+                          if (requireOwner("edit topic notes")) {
+                            setEditingTopicId(topicItem.id);
+                          }
+                        }}
                         className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
                       >
                         <Edit2 className="h-3.5 w-3.5" /> Edit Notes
@@ -486,7 +493,11 @@ export default function ContinuousTopicBookPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleFavoriteTopic(topicItem.id)}
+                      onClick={() => {
+                        if (requireOwner("save favorite topics")) {
+                          toggleFavoriteTopic(topicItem.id);
+                        }
+                      }}
                       className="gap-1 text-xs h-8"
                     >
                       <Star
@@ -500,8 +511,10 @@ export default function ContinuousTopicBookPage() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        setSessionTopic(topicItem);
-                        setIsLogSessionOpen(true);
+                        if (requireOwner("log study time")) {
+                          setSessionTopic(topicItem);
+                          setIsLogSessionOpen(true);
+                        }
                       }}
                       className="gap-1 text-xs h-8 shadow-xs"
                     >
@@ -546,7 +559,11 @@ export default function ContinuousTopicBookPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setEditingTopicId(topicItem.id)}
+                            onClick={() => {
+                              if (requireOwner("write topic notes")) {
+                                setEditingTopicId(topicItem.id);
+                              }
+                            }}
                             className="gap-1.5 text-xs border-dashed"
                           >
                             <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes

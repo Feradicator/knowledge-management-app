@@ -40,7 +40,7 @@ interface TreeNodeItemProps {
 }
 
 function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItemProps) {
-  const { updateTopicProgress, updateTopic, deleteTopic, toggleFavoriteTopic } = useLearningStore();
+  const { updateTopicProgress, updateTopic, deleteTopic, toggleFavoriteTopic, isOwner, requireOwner } = useLearningStore();
   const [isExpanded, setIsExpanded] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(topic.name);
@@ -131,6 +131,7 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              if (!requireOwner("update topic completion")) return;
               const isCompleted = topic.status === "Completed" || topic.progress === 100;
               if (isCompleted) {
                 updateTopic(topic.id, {
@@ -172,14 +173,22 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
           {/* Quick Actions */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => onAddSubtopic(topic.id, topic.name)}
+              onClick={() => {
+                if (requireOwner("add subtopic")) {
+                  onAddSubtopic(topic.id, topic.name);
+                }
+              }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
               title="Add subtopic here"
             >
               <Plus className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                if (requireOwner("edit topic")) {
+                  setIsEditing(true);
+                }
+              }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
               title="Edit topic"
             >
@@ -187,8 +196,10 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
             </button>
             <button
               onClick={() => {
-                if (confirm(`Delete topic '${topic.name}' and all subtopics?`)) {
-                  deleteTopic(topic.id);
+                if (requireOwner("delete topic")) {
+                  if (confirm(`Delete topic '${topic.name}' and all subtopics?`)) {
+                    deleteTopic(topic.id);
+                  }
                 }
               }}
               className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
@@ -273,7 +284,7 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
 }
 
 export function HierarchicalTopicTree({ technologyId, accentColor }: HierarchicalTopicTreeProps) {
-  const { getTopicTree, addTopic } = useLearningStore();
+  const { getTopicTree, addTopic, isOwner, requireOwner } = useLearningStore();
   const tree = getTopicTree(technologyId);
 
   const [isAddSubModalOpen, setIsAddSubModalOpen] = useState(false);
@@ -286,6 +297,7 @@ export function HierarchicalTopicTree({ technologyId, accentColor }: Hierarchica
   const [newTopicPriority, setNewTopicPriority] = useState<TopicPriority>("Medium");
 
   const handleOpenAddSubtopic = (parentId: string, parentName: string) => {
+    if (!requireOwner("add a subtopic")) return;
     setParentTopicInfo({ id: parentId, name: parentName });
     setNewTopicName("");
     setNewTopicDesc("");
@@ -294,6 +306,7 @@ export function HierarchicalTopicTree({ technologyId, accentColor }: Hierarchica
   };
 
   const handleOpenAddRoot = () => {
+    if (!requireOwner("add a root topic")) return;
     setParentTopicInfo({ id: null, name: "Root Topic" });
     setNewTopicName("");
     setNewTopicDesc("");

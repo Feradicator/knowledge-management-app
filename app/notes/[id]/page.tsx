@@ -30,7 +30,7 @@ export default function NoteDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { getNoteById, technologies, topics, updateNote, deleteNote, toggleFavoriteNote } =
+  const { getNoteById, technologies, topics, updateNote, deleteNote, toggleFavoriteNote, isOwner, requireOwner } =
     useLearningStore();
 
   const readerPrefs = useReaderPreferences();
@@ -127,7 +127,11 @@ export default function NoteDetailPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIsEditing(true)}
+              onClick={() => {
+                if (requireOwner("edit this note")) {
+                  setIsEditing(true);
+                }
+              }}
               className="gap-1.5 text-xs font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
             >
               <Edit2 className="h-3.5 w-3.5" /> Edit Note
@@ -137,7 +141,11 @@ export default function NoteDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => toggleFavoriteNote(note.id)}
+            onClick={() => {
+              if (requireOwner("save favorite notes")) {
+                toggleFavoriteNote(note.id);
+              }
+            }}
             className="gap-1.5 text-xs h-8"
           >
             <Star
@@ -150,10 +158,14 @@ export default function NoteDetailPage() {
           <Button
             variant="destructive"
             size="icon-sm"
-            onClick={handleDelete}
+            onClick={() => {
+              if (requireOwner("delete this note")) {
+                handleDelete();
+              }
+            }}
             title="Delete note"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
