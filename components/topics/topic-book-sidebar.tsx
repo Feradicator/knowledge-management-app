@@ -24,6 +24,7 @@ interface TopicBookSidebarProps {
   technology: Technology;
   topicsTree: Topic[];
   activeTopicId: string;
+  onTopicClick?: (topicId: string) => void;
   className?: string;
 }
 
@@ -31,6 +32,7 @@ export function TopicBookSidebar({
   technology,
   topicsTree,
   activeTopicId,
+  onTopicClick,
   className,
 }: TopicBookSidebarProps) {
   // Recursive renderer for any depth of topics and subtopics
@@ -46,61 +48,76 @@ export function TopicBookSidebar({
     const isCompleted =
       topicNode.status === "Completed" || topicNode.progress === 100;
 
+    const rowClassName = cn(
+      "flex items-center justify-between gap-2 rounded-xl transition-all group select-none cursor-pointer w-full text-left",
+      level === 0
+        ? "px-2.5 py-2 text-xs font-semibold"
+        : level === 1
+        ? "px-2 py-1.5 text-[11px] font-medium"
+        : "px-2 py-1 text-[11px] font-normal",
+      isActive
+        ? level === 0
+          ? "bg-primary text-primary-foreground shadow-xs font-bold"
+          : "bg-primary/20 text-primary border border-primary/40 font-bold"
+        : "text-foreground/90 hover:bg-secondary/80 hover:text-foreground"
+    );
+
+    const innerContent = (
+      <>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span
+            className={cn(
+              "font-mono shrink-0",
+              level === 0
+                ? "text-[10px] px-1.5 py-0.5 rounded"
+                : "text-[9px] opacity-70",
+              isActive && level === 0
+                ? "bg-white/20 text-white"
+                : level === 0
+                ? "bg-secondary text-muted-foreground group-hover:text-foreground"
+                : ""
+            )}
+          >
+            {prefix}
+          </span>
+          <span className="truncate">{topicNode.name}</span>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {isCompleted ? (
+            <CheckCircle2
+              className={cn(
+                "h-3.5 w-3.5",
+                isActive && level === 0 ? "text-white" : "text-emerald-500"
+              )}
+            />
+          ) : (
+            <div
+              className={cn(
+                level === 0 ? "h-2 w-2 rounded-full" : "h-1.5 w-1.5 rounded-full",
+                isActive && level === 0 ? "bg-white/50" : "bg-muted-foreground/30"
+              )}
+            />
+          )}
+        </div>
+      </>
+    );
+
     return (
       <div key={topicNode.id} className="space-y-0.5">
-        <Link
-          href={`/topics/${topicNode.id}`}
-          className={cn(
-            "flex items-center justify-between gap-2 rounded-xl transition-all group select-none",
-            level === 0
-              ? "px-2.5 py-2 text-xs font-semibold"
-              : level === 1
-              ? "px-2 py-1.5 text-[11px] font-medium"
-              : "px-2 py-1 text-[11px] font-normal",
-            isActive
-              ? level === 0
-                ? "bg-primary text-primary-foreground shadow-xs font-bold"
-                : "bg-primary/20 text-primary border border-primary/40 font-bold"
-              : "text-foreground/90 hover:bg-secondary/80 hover:text-foreground"
-          )}
-        >
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span
-              className={cn(
-                "font-mono shrink-0",
-                level === 0
-                  ? "text-[10px] px-1.5 py-0.5 rounded"
-                  : "text-[9px] opacity-70",
-                isActive && level === 0
-                  ? "bg-white/20 text-white"
-                  : level === 0
-                  ? "bg-secondary text-muted-foreground group-hover:text-foreground"
-                  : ""
-              )}
-            >
-              {prefix}
-            </span>
-            <span className="truncate">{topicNode.name}</span>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {isCompleted ? (
-              <CheckCircle2
-                className={cn(
-                  "h-3.5 w-3.5",
-                  isActive && level === 0 ? "text-white" : "text-emerald-500"
-                )}
-              />
-            ) : (
-              <div
-                className={cn(
-                  level === 0 ? "h-2 w-2 rounded-full" : "h-1.5 w-1.5 rounded-full",
-                  isActive && level === 0 ? "bg-white/50" : "bg-muted-foreground/30"
-                )}
-              />
-            )}
-          </div>
-        </Link>
+        {onTopicClick ? (
+          <button
+            type="button"
+            onClick={() => onTopicClick(topicNode.id)}
+            className={rowClassName}
+          >
+            {innerContent}
+          </button>
+        ) : (
+          <Link href={`/topics/${topicNode.id}`} className={rowClassName}>
+            {innerContent}
+          </Link>
+        )}
 
         {/* Recursive Child Subtopics of Any Depth */}
         {hasSubtopics && (

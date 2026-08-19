@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useLearningStore } from "@/lib/store/learning-store";
-import { ChecklistManager } from "@/components/topics/checklist-manager";
 import { TiptapEditor } from "@/components/notes/tiptap-editor";
 import { TopicBookSidebar } from "@/components/topics/topic-book-sidebar";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Slider } from "@/components/ui/slider";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -25,9 +23,6 @@ import {
   FolderArchive,
   FileText,
   Plus,
-  Play,
-  Share2,
-  ExternalLink,
   ChevronRight,
   ChevronLeft,
   ListTree,
@@ -36,21 +31,21 @@ import {
   Edit2,
   Eye,
 } from "lucide-react";
-import { getStatusColor, getPriorityColor, formatDateString, formatRelativeDate } from "@/lib/utils";
+import { getStatusColor, getPriorityColor, formatDateString, formatRelativeDate, cn } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
 import { PdfViewerModal } from "@/components/files/pdf-viewer-modal";
 import { Topic } from "@/types/database";
 
-export default function TopicDetailPage() {
+export default function ContinuousTopicBookPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const initialTopicId = params.id as string;
+
   const {
     getTopicById,
     getTechnologyById,
     getTopicTree,
     updateTopic,
-    updateTopicProgress,
     toggleFavoriteTopic,
     notes,
     files,
@@ -61,11 +56,11 @@ export default function TopicDetailPage() {
     createMindMapFromTopic,
   } = useLearningStore();
 
-  const topic = getTopicById(id);
-  const tech = topic ? getTechnologyById(topic.technology_id) : undefined;
+  const currentTopic = getTopicById(initialTopicId);
+  const tech = currentTopic ? getTechnologyById(currentTopic.technology_id) : undefined;
   const topicsTree = useMemo(() => (tech ? getTopicTree(tech.id) : []), [tech, getTopicTree]);
 
-  // Flatten the topic tree sequentially to calculate Book Previous / Next pointers
+  // Flatten the topic tree sequentially to order all chapters in continuous book format
   const flatOrderedTopics = useMemo(() => {
     const flatten = (tree: Topic[]): Topic[] => {
       let list: Topic[] = [];
@@ -80,18 +75,89 @@ export default function TopicDetailPage() {
     return flatten(topicsTree);
   }, [topicsTree]);
 
-  const currentIndex = flatOrderedTopics.findIndex((t) => t.id === id);
-  const prevTopic = currentIndex > 0 ? flatOrderedTopics[currentIndex - 1] : null;
-  const nextTopic = currentIndex >= 0 && currentIndex < flatOrderedTopics.length - 1 ? flatOrderedTopics[currentIndex + 1] : null;
+  // State to track which topic is actively highlighted in viewport
+  const [activeTopicId, setActiveTopicId] = useState<string>(initialTopicId);
+  const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
 
+  // Study log modal
   const [isLogSessionOpen, setIsLogSessionOpen] = useState(false);
+  const [sessionTopic, setSessionTopic] = useState<Topic | null>(currentTopic || null);
   const [sessionMinutes, setSessionMinutes] = useState(45);
   const [sessionNotes, setSessionNotes] = useState("");
+
   const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
 
-  if (!topic) {
+  // Initial scroll into the requested topic section on mount
+  useEffect(() => {
+    if (initialTopicId) {
+      const timer = setTimeout(() => {
+        const targetElement = document.getElementById(`topic-section-${initialTopicId}`);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [initialTopicId]);
+
+  // ScrollSpy with IntersectionObserver to track and highlight the currently active chapter
+  useEffect(() => {
+    if (flatOrderedTopics.length === 0) return;
+
+    const observerCallback: IntersectionObserverCallback = (entries) => {
+      // Find the entry that has the highest intersection or is visible near top of screen
+      const visibleEntries = entries.filter((e) => e.isIntersecting);
+      if (visibleEntries.length > 0) {
+        // Sort by distance to top of viewport
+        visibleEntries.sort((a, b) => {
+          return Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top);
+        });
+        const topTopicId = visibleEntries[0].target.getAttribute("data-topic-id");
+        if (topTopicId && topTopicId !== activeTopicId) {
+          setActiveTopicId(topTopicId);
+          // Update URL without page reload
+          window.history.replaceState(null, "", `/topics/${topTopicId}`);
+        }
+      }
+    };
+
+    const observer = new IntersectionObserver(observerCallback, {
+      root: null,
+      rootMargin: "-80px 0px -60% 0px",
+      threshold: [0, 0.1, 0.3, 0.5, 0.8],
+    });
+
+    flatOrderedTopics.forEach((t) => {
+      const el = document.getElementById(`topic-section-${t.id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [flatOrderedTopics, activeTopicId]);
+
+  // Handle smooth scroll when clicking on Table of Contents item
+  const handleScrollToTopic = (targetTopicId: string) => {
+    const el = document.getElementById(`topic-section-${targetTopicId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setActiveTopicId(targetTopicId);
+      window.history.replaceState(null, "", `/topics/${targetTopicId}`);
+    }
+  };
+
+  // Previous & Next navigation relative to active visible topic
+  const currentVisibleIndex = flatOrderedTopics.findIndex((t) => t.id === activeTopicId);
+  const activeVisibleTopic = currentVisibleIndex >= 0 ? flatOrderedTopics[currentVisibleIndex] : currentTopic;
+  const prevTopic = currentVisibleIndex > 0 ? flatOrderedTopics[currentVisibleIndex - 1] : null;
+  const nextTopic =
+    currentVisibleIndex >= 0 && currentVisibleIndex < flatOrderedTopics.length - 1
+      ? flatOrderedTopics[currentVisibleIndex + 1]
+      : null;
+
+  if (!currentTopic && flatOrderedTopics.length === 0) {
     return (
       <div className="p-12 text-center">
         <h2 className="text-xl font-bold text-foreground">Topic Not Found</h2>
@@ -107,34 +173,28 @@ export default function TopicDetailPage() {
     );
   }
 
-  // Find or create primary note for this topic
-  const topicNote = notes.find((n) => n.topic_id === topic.id);
-  const topicFiles = files.filter((f) => f.topic_id === topic.id);
-  const topicMindMaps = mindMaps.filter((m) => m.topic_id === topic.id);
-
-  const statusColor = getStatusColor(topic.status);
-  const priorityColor = getPriorityColor(topic.priority);
-
-  const handleSaveNote = (html: string) => {
-    if (topicNote) {
-      updateNote(topicNote.id, { content_html: html });
+  const handleSaveNoteForTopic = (topicItem: Topic, html: string) => {
+    const existing = notes.find((n) => n.topic_id === topicItem.id);
+    if (existing) {
+      updateNote(existing.id, { content_html: html });
     } else {
       addNote({
-        title: `${topic.name} Study Notes`,
-        technology_id: topic.technology_id,
-        topic_id: topic.id,
+        title: `${topicItem.name} Notes`,
+        technology_id: topicItem.technology_id,
+        topic_id: topicItem.id,
         content_html: html,
-        tags: [topic.slug, tech?.slug || "tech"].filter(Boolean),
+        tags: [topicItem.slug, tech?.slug || "tech"].filter(Boolean),
       });
     }
   };
 
-  const handleLogSession = (e: React.FormEvent) => {
+  const handleLogSessionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!sessionTopic) return;
     addLearningSession({
-      technology_id: topic.technology_id,
-      topic_id: topic.id,
-      title: `Studied ${topic.name}`,
+      technology_id: sessionTopic.technology_id,
+      topic_id: sessionTopic.id,
+      title: `Studied ${sessionTopic.name}`,
       duration_minutes: Number(sessionMinutes),
       description: sessionNotes,
       date: new Date().toISOString().split("T")[0],
@@ -143,43 +203,51 @@ export default function TopicDetailPage() {
     setSessionNotes("");
   };
 
-  const handleCreateMindMap = () => {
-    const map = createMindMapFromTopic(topic.id);
-    router.push(`/mind-maps/${map.id}`);
-  };
-
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16">
-      {/* Top Book Paging & Breadcrumb Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-2xl bg-card border border-border/70 shadow-xs">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
-          <Link href="/technologies" className="hover:text-foreground shrink-0">Technologies</Link>
-          <ChevronRight className="h-3 w-3 shrink-0" />
+    <div className="space-y-6 pb-24">
+      {/* Persistent Top Navigation Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/80 sticky top-0 bg-background/95 backdrop-blur-md z-30 pt-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/technologies"
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Technologies
+          </Link>
+          <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
           {tech && (
             <>
-              <Link href={`/technologies/${tech.id}`} className="hover:text-foreground font-semibold truncate shrink-0">
+              <Link
+                href={`/technologies/${tech.id}`}
+                className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
                 {tech.name}
               </Link>
-              <ChevronRight className="h-3 w-3 shrink-0" />
+              <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
             </>
           )}
-          <span className="text-foreground font-bold truncate">{topic.name}</span>
+          <span className="text-xs font-bold text-foreground">
+            {activeVisibleTopic?.name || "Study Guide"}
+          </span>
         </div>
 
-        {/* Sequential Book Switcher Controls */}
-        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-          <span className="text-xs font-mono text-muted-foreground mr-1 hidden sm:inline">
-            Topic {currentIndex + 1} of {flatOrderedTopics.length || 1}
+        {/* Previous / Next chapter jump buttons */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="text-xs text-muted-foreground hidden sm:inline mr-2 font-mono">
+            Topic {currentVisibleIndex + 1} of {flatOrderedTopics.length}
           </span>
 
           {prevTopic ? (
-            <Link href={`/topics/${prevTopic.id}`}>
-              <Button size="sm" variant="outline" className="gap-1 text-xs h-8">
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden md:inline truncate max-w-[120px]">{prevTopic.name}</span>
-                <span className="md:hidden">Prev</span>
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleScrollToTopic(prevTopic.id)}
+              className="gap-1 text-xs h-8"
+              title={`Previous: ${prevTopic.name}`}
+            >
+              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline truncate max-w-[120px]">{prevTopic.name}</span>
+              <span className="sm:hidden">Prev</span>
+            </Button>
           ) : (
             <Button size="sm" variant="outline" disabled className="gap-1 text-xs h-8 opacity-40">
               <ChevronLeft className="h-4 w-4" /> Prev
@@ -187,13 +255,16 @@ export default function TopicDetailPage() {
           )}
 
           {nextTopic ? (
-            <Link href={`/topics/${nextTopic.id}`}>
-              <Button size="sm" variant="default" className="gap-1 text-xs h-8">
-                <span className="hidden md:inline truncate max-w-[120px]">{nextTopic.name}</span>
-                <span className="md:hidden">Next</span>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button
+              size="sm"
+              onClick={() => handleScrollToTopic(nextTopic.id)}
+              className="gap-1 text-xs h-8 shadow-xs"
+              title={`Next: ${nextTopic.name}`}
+            >
+              <span className="hidden sm:inline truncate max-w-[120px]">{nextTopic.name}</span>
+              <span className="sm:hidden">Next</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           ) : (
             <Button size="sm" variant="outline" disabled className="gap-1 text-xs h-8 opacity-40">
               Next <ChevronRight className="h-4 w-4" />
@@ -202,374 +273,290 @@ export default function TopicDetailPage() {
         </div>
       </div>
 
-      {/* 2-Column Main Layout: Left Book Sidebar TOC + Right Topic Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Left Col: Interactive Book Table of Contents */}
+      {/* Main 2-Column Book Layout: Left Sticky TOC + Right Continuous Document Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+        {/* Left Col: Sticky Interactive Table of Contents with dynamic ScrollSpy */}
         {tech && (
-          <div className="hidden lg:block lg:col-span-1 sticky top-20">
+          <div className="hidden lg:block lg:col-span-1 sticky top-16">
             <TopicBookSidebar
               technology={tech}
               topicsTree={topicsTree}
-              activeTopicId={topic.id}
+              activeTopicId={activeTopicId}
+              onTopicClick={handleScrollToTopic}
             />
           </div>
         )}
 
-        {/* Right Col: Topic Detail Content & Editor */}
-        <div className={tech ? "lg:col-span-3 space-y-6" : "lg:col-span-4 space-y-6"}>
-          {/* Sleek Compact Header */}
-          <div
-            className="px-4 py-3 rounded-xl bg-card border border-border/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            style={{ borderLeft: `4px solid ${tech?.color || "#6366f1"}` }}
-          >
-            <div className="flex items-center gap-3 min-w-0 flex-wrap">
-              <span
-                className="px-2 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs"
-                style={{ backgroundColor: tech?.color || "#6366f1" }}
-              >
-                {tech?.name || "General"}
-              </span>
+        {/* Right Col: Continuous Topics Document Feed */}
+        <div className={tech ? "lg:col-span-3 space-y-12" : "lg:col-span-4 space-y-12"}>
+          {flatOrderedTopics.map((topicItem, topicIdx) => {
+            const isCurrentActive = topicItem.id === activeTopicId;
+            const noteForTopic = notes.find((n) => n.topic_id === topicItem.id);
+            const isEditingThis = editingTopicId === topicItem.id;
+            const itemMindMaps = mindMaps.filter((m) => m.topic_id === topicItem.id);
+            const itemFiles = files.filter((f) => f.topic_id === topicItem.id);
+            const statusCol = getStatusColor(topicItem.status);
+            const isCompleted = topicItem.status === "Completed" || topicItem.progress === 100;
 
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
-                {topic.name}
-              </h1>
-
-              {/* Completed Checkbox Toggle */}
-              <button
-                type="button"
-                onClick={() => {
-                  const isCompleted = topic.status === "Completed" || topic.progress === 100;
-                  if (isCompleted) {
-                    updateTopic(topic.id, {
-                      status: "Not Started",
-                      progress: 0,
-                      completed_at: null,
-                    });
-                  } else {
-                    updateTopic(topic.id, {
-                      status: "Completed",
-                      progress: 100,
-                      completed_at: new Date().toISOString(),
-                    });
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
-                  topic.status === "Completed" || topic.progress === 100
-                    ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                    : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/30"
-                }`}
-                title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+            return (
+              <section
+                key={topicItem.id}
+                id={`topic-section-${topicItem.id}`}
+                data-topic-id={topicItem.id}
+                className="scroll-mt-20 space-y-4 pt-2 border-b border-border/40 pb-12 last:border-b-0 transition-all"
               >
+                {/* Topic Header Banner */}
                 <div
-                  className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-all ${
-                    topic.status === "Completed" || topic.progress === 100
-                      ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
-                      : "border-muted-foreground/50 bg-background"
-                  }`}
-                >
-                  {(topic.status === "Completed" || topic.progress === 100) && (
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                  className={cn(
+                    "px-4 py-3 rounded-xl bg-card border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
+                    isCurrentActive
+                      ? "border-primary/60 ring-1 ring-primary/20 bg-card"
+                      : "border-border/80"
                   )}
-                </div>
-                <span className="text-[11px]">
-                  {topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : "Mark Done"}
-                </span>
-              </button>
-            </div>
-
-            {/* Actions: Edit Notes, Favorite & Log Study Time */}
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              {isEditingNotes ? (
-                <Button
-                  size="sm"
-                  variant="subtle"
-                  onClick={() => setIsEditingNotes(false)}
-                  className="gap-1.5 text-xs h-8 font-semibold text-emerald-600 dark:text-emerald-400"
+                  style={{ borderLeft: `4px solid ${tech?.color || "#6366f1"}` }}
                 >
-                  <Eye className="h-3.5 w-3.5" /> Done (Reading View)
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsEditingNotes(true)}
-                  className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
-                >
-                  <Edit2 className="h-3.5 w-3.5" /> Edit Notes
-                </Button>
-              )}
+                  <div className="flex items-center gap-3 min-w-0 flex-wrap">
+                    <span
+                      className="px-2 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs"
+                      style={{ backgroundColor: tech?.color || "#6366f1" }}
+                    >
+                      {topicItem.parent_topic_id ? "Subtopic" : "Chapter"}
+                    </span>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => toggleFavoriteTopic(topic.id)}
-                className="gap-1 text-xs h-8"
-              >
-                <Star
-                  className={`h-3.5 w-3.5 ${
-                    topic.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                  }`}
-                />
-                <span className="hidden sm:inline">{topic.is_favorite ? "Favorited" : "Favorite"}</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setIsLogSessionOpen(true)}
-                className="gap-1 text-xs h-8 shadow-xs"
-              >
-                <Clock className="h-3.5 w-3.5" />
-                <span>Log Time</span>
-              </Button>
-            </div>
-          </div>
+                    <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                      {topicItem.name}
+                    </h2>
 
-          {/* Notes & Attachments Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Notes Reading / Editing Area */}
-            <div className="xl:col-span-2 space-y-3">
-              {isEditingNotes ? (
-                <Card className="p-4 bg-card border border-border/80 shadow-xs">
-                  <TiptapEditor
-                    initialContent={
-                      topicNote?.content_html ||
-                      `<h2>${topic.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`
-                    }
-                    onSave={handleSaveNote}
-                    placeholder="Write detailed notes, code blocks, or checklists..."
-                  />
-                </Card>
-              ) : (
-                <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs min-h-[220px]">
-                  {topicNote?.content_html ? (
-                    <div
-                      className="tiptap-content prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: topicNote.content_html }}
-                    />
-                  ) : (
-                    <div className="py-12 text-center space-y-3">
-                      <div className="h-10 w-10 mx-auto rounded-full bg-secondary/80 flex items-center justify-center text-muted-foreground">
-                        <FileText className="h-5 w-5" />
+                    {/* Completed Checkbox Toggle */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isCompleted) {
+                          updateTopic(topicItem.id, {
+                            status: "Not Started",
+                            progress: 0,
+                            completed_at: null,
+                          });
+                        } else {
+                          updateTopic(topicItem.id, {
+                            status: "Completed",
+                            progress: 100,
+                            completed_at: new Date().toISOString(),
+                          });
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
+                        isCompleted
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                          : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/30"
+                      }`}
+                      title={isCompleted ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+                    >
+                      <div
+                        className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-all ${
+                          isCompleted
+                            ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                            : "border-muted-foreground/50 bg-background"
+                        }`}
+                      >
+                        {isCompleted && <Check className="h-2.5 w-2.5 stroke-[3]" />}
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-foreground">No notes written for this topic yet</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Click edit to start writing notes, code snippets, and architectural breakdowns.
-                        </p>
-                      </div>
+                      <span className="text-[11px]">
+                        {isCompleted ? "Completed ✓" : "Mark Done"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Actions: Edit Notes, Favorite & Log Time */}
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {isEditingThis ? (
                       <Button
                         size="sm"
-                        onClick={() => setIsEditingNotes(true)}
-                        className="gap-1.5 text-xs"
+                        variant="subtle"
+                        onClick={() => setEditingTopicId(null)}
+                        className="gap-1.5 text-xs h-8 font-semibold text-emerald-600 dark:text-emerald-400"
                       >
-                        <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes
+                        <Eye className="h-3.5 w-3.5" /> Done (Reading View)
                       </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingTopicId(topicItem.id)}
+                        className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> Edit Notes
+                      </Button>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleFavoriteTopic(topicItem.id)}
+                      className="gap-1 text-xs h-8"
+                    >
+                      <Star
+                        className={`h-3.5 w-3.5 ${
+                          topicItem.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                        }`}
+                      />
+                      <span className="hidden sm:inline">{topicItem.is_favorite ? "Favorited" : "Favorite"}</span>
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSessionTopic(topicItem);
+                        setIsLogSessionOpen(true);
+                      }}
+                      className="gap-1 text-xs h-8 shadow-xs"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Log Time</span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Notes Container: Reading View vs Tiptap Editor */}
+                <div className="space-y-4">
+                  {isEditingThis ? (
+                    <Card className="p-4 bg-card border border-border/80 shadow-xs">
+                      <TiptapEditor
+                        initialContent={
+                          noteForTopic?.content_html ||
+                          `<h2>${topicItem.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`
+                        }
+                        onSave={(html) => handleSaveNoteForTopic(topicItem, html)}
+                        placeholder="Write detailed notes, code blocks, or checklists..."
+                      />
+                    </Card>
+                  ) : (
+                    <div className="p-6 sm:p-8 rounded-2xl bg-card border border-border/80 shadow-xs min-h-[140px]">
+                      {noteForTopic?.content_html ? (
+                        <div
+                          className="tiptap-content prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: noteForTopic.content_html }}
+                        />
+                      ) : (
+                        <div className="py-8 text-center space-y-2">
+                          <p className="text-xs text-muted-foreground">No notes written for this topic yet.</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingTopicId(topicItem.id)}
+                            className="gap-1.5 text-xs border-dashed"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* Right 1 Col: Mind Maps & Attachments */}
-            <div className="space-y-6">
-              {/* Mind Map Generation */}
-              <Card className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <Network className="h-4 w-4 text-primary" /> Concept Mind Map
-                  </h3>
-                  {topicMindMaps.length === 0 && (
-                    <Button size="sm" variant="subtle" onClick={handleCreateMindMap} className="gap-1 text-xs">
-                      <Plus className="h-3.5 w-3.5" /> Generate
-                    </Button>
-                  )}
-                </div>
-
-                {topicMindMaps.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-border/80 rounded-xl space-y-2">
-                    <p className="text-xs text-muted-foreground">No mind map generated for this topic yet.</p>
-                    <Button size="sm" onClick={handleCreateMindMap} className="gap-1 text-xs">
-                      <Sparkles className="h-3.5 w-3.5" /> Create Visual Map
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {topicMindMaps.map((map) => (
-                      <Link key={map.id} href={`/mind-maps/${map.id}`}>
-                        <div className="p-3 rounded-xl bg-secondary/50 hover:bg-secondary border border-border/60 transition-colors flex items-center justify-between group">
-                          <div>
-                            <p className="font-bold text-xs text-foreground group-hover:text-primary transition-colors">
-                              {map.title}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">{map.nodes_json?.length || 0} nodes</p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-                        </div>
+                {/* Associated Mind Map & Files Pills if any */}
+                {(itemMindMaps.length > 0 || itemFiles.length > 0) && (
+                  <div className="flex items-center gap-3 flex-wrap pt-1 text-xs text-muted-foreground">
+                    {itemMindMaps.map((map) => (
+                      <Link
+                        key={map.id}
+                        href={`/mind-maps/${map.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors font-medium border border-border/60"
+                      >
+                        <Network className="h-3.5 w-3.5 text-primary" /> Visual Mind Map: {map.title}
                       </Link>
                     ))}
-                  </div>
-                )}
-              </Card>
-
-              {/* Linked Files & Handwritten Scans */}
-              <Card className="p-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <FolderArchive className="h-4 w-4 text-primary" /> Topic Attachments
-                  </h3>
-                  <Link href={`/files?tech=${topic.technology_id}`}>
-                    <Button size="sm" variant="subtle" className="gap-1 text-xs">
-                      <Plus className="h-3.5 w-3.5" /> Upload
-                    </Button>
-                  </Link>
-                </div>
-
-                {topicFiles.length === 0 ? (
-                  <div className="text-center py-6 border border-dashed border-border/80 rounded-xl">
-                    <p className="text-xs text-muted-foreground">No files attached to this topic.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {topicFiles.map((file) => (
-                      <div
+                    {itemFiles.map((file) => (
+                      <button
                         key={file.id}
-                        className="p-3 rounded-xl bg-secondary/50 border border-border/60 flex items-center justify-between gap-2"
+                        onClick={() => {
+                          const url = file.public_url || file.storage_path;
+                          if (file.file_type.includes("pdf") || file.filename.toLowerCase().endsWith(".pdf")) {
+                            setSelectedPdf({ url, title: file.filename });
+                          } else {
+                            setSelectedImage({ url, title: file.filename });
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground transition-colors font-medium border border-border/60 cursor-pointer"
                       >
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-foreground truncate">{file.filename}</p>
-                          <span className="text-[10px] text-muted-foreground">
-                            {file.is_handwritten ? "Handwritten Note" : "Document"}
-                          </span>
-                        </div>
-
-                        {file.is_handwritten && file.public_url ? (
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            onClick={() => setSelectedImage({ url: file.public_url!, title: file.filename })}
-                            title="Inspect scan"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : (file.file_type?.includes("pdf") || file.filename?.endsWith(".pdf")) && file.public_url ? (
-                          <Button
-                            size="icon-sm"
-                            variant="outline"
-                            onClick={() => setSelectedPdf({ url: file.public_url!, title: file.filename })}
-                            title="Read PDF in-app"
-                          >
-                            <BookOpen className="h-3.5 w-3.5 text-rose-500" />
-                          </Button>
-                        ) : (
-                          <a href={file.public_url} target="_blank" rel="noopener noreferrer">
-                            <Button size="icon-sm" variant="outline">
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
-                          </a>
-                        )}
-                      </div>
+                        <FileText className="h-3.5 w-3.5 text-primary" /> {file.filename}
+                      </button>
                     ))}
                   </div>
                 )}
-              </Card>
-            </div>
-          </div>
-
-          {/* Bottom Book Chapter Navigation Cards */}
-          <div className="pt-6 border-t border-border/70 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {prevTopic ? (
-              <Link href={`/topics/${prevTopic.id}`}>
-                <Card hoverEffect className="p-4 h-full flex flex-col justify-between group bg-secondary/30">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <ChevronLeft className="h-4 w-4 text-primary group-hover:-translate-x-1 transition-transform" />
-                    <span>Previous Chapter</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                      {prevTopic.name}
-                    </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                      {prevTopic.description || "Continue reading previous topic"}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-            ) : (
-              <div />
-            )}
-
-            {nextTopic ? (
-              <Link href={`/topics/${nextTopic.id}`}>
-                <Card hoverEffect className="p-4 h-full flex flex-col justify-between items-end text-right group bg-secondary/30">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                    <span>Next Chapter</span>
-                    <ChevronRight className="h-4 w-4 text-primary group-hover:translate-x-1 transition-transform" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
-                      {nextTopic.name}
-                    </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                      {nextTopic.description || "Continue reading next topic"}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-            ) : (
-              <div />
-            )}
-          </div>
+              </section>
+            );
+          })}
         </div>
       </div>
 
       {/* Log Study Session Modal */}
-      <Modal isOpen={isLogSessionOpen} onClose={() => setIsLogSessionOpen(false)} title={`Log Study Time: ${topic.name}`}>
-        <form onSubmit={handleLogSession} className="space-y-4">
+      <Modal
+        isOpen={isLogSessionOpen}
+        onClose={() => setIsLogSessionOpen(false)}
+        title={sessionTopic ? `Log Study Session: ${sessionTopic.name}` : "Log Study Session"}
+        maxWidth="md"
+      >
+        <form onSubmit={handleLogSessionSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-foreground mb-1 block">Study Duration (Minutes)</label>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+              Study Duration (Minutes)
+            </label>
             <Input
               type="number"
               min="5"
               max="600"
+              step="5"
               value={sessionMinutes}
               onChange={(e) => setSessionMinutes(Number(e.target.value))}
               required
             />
           </div>
+
           <div>
-            <label className="text-xs font-semibold text-foreground mb-1 block">Notes / Key Takeaways (Optional)</label>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+              What did you learn / practice? (Optional)
+            </label>
             <Textarea
-              placeholder="What problems did you solve? What did you build today?"
+              placeholder="e.g. Practiced CLI commands, reviewed container lifecycle, configured volume mounts..."
               value={sessionNotes}
               onChange={(e) => setSessionNotes(e.target.value)}
               rows={3}
             />
           </div>
+
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setIsLogSessionOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsLogSessionOpen(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit">Log Session</Button>
+            <Button type="submit" className="gap-1.5">
+              <Clock className="h-4 w-4" /> Save Session
+            </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Zoomable Image Viewer Modal */}
-      {selectedImage && (
-        <ImageViewerModal
-          isOpen={Boolean(selectedImage)}
-          onClose={() => setSelectedImage(null)}
-          imageUrl={selectedImage.url}
-          title={selectedImage.title}
-        />
-      )}
-
-      {/* In-App PDF Viewer Modal */}
+      {/* Fullscreen PDF Viewer Modal */}
       {selectedPdf && (
         <PdfViewerModal
           isOpen={Boolean(selectedPdf)}
           onClose={() => setSelectedPdf(null)}
           pdfUrl={selectedPdf.url}
           title={selectedPdf.title}
+        />
+      )}
+
+      {/* Fullscreen Image Viewer Modal */}
+      {selectedImage && (
+        <ImageViewerModal
+          isOpen={Boolean(selectedImage)}
+          onClose={() => setSelectedImage(null)}
+          imageUrl={selectedImage.url}
+          title={selectedImage.title}
         />
       )}
     </div>
