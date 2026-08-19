@@ -33,6 +33,8 @@ import {
   ListTree,
   Sparkles,
   Check,
+  Edit2,
+  Eye,
 } from "lucide-react";
 import { getStatusColor, getPriorityColor, formatDateString, formatRelativeDate } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
@@ -87,6 +89,7 @@ export default function TopicDetailPage() {
   const [sessionNotes, setSessionNotes] = useState("");
   const [selectedImage, setSelectedImage] = useState<{ url: string; title: string } | null>(null);
   const [selectedPdf, setSelectedPdf] = useState<{ url: string; title: string } | null>(null);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
 
   if (!topic) {
     return (
@@ -302,22 +305,74 @@ export default function TopicDetailPage() {
 
           {/* Notes & Attachments Grid */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Left 2 Cols: Notes with Tiptap Editor */}
+            {/* Left 2 Cols: Notes Reading / Editing Area */}
             <div className="xl:col-span-2 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-base text-foreground flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" /> Topic Notes & Deep-Dive Insights
                 </h3>
-                <span className="text-xs text-muted-foreground">Autosaved to database</span>
+                
+                {isEditingNotes ? (
+                  <Button
+                    size="sm"
+                    variant="subtle"
+                    onClick={() => setIsEditingNotes(false)}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-emerald-500" /> Done (Reading View)
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditingNotes(true)}
+                    className="gap-1.5 text-xs font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" /> Edit Notes
+                  </Button>
+                )}
               </div>
 
-              <Card className="p-4 bg-card border border-border/80 shadow-xs">
-                <TiptapEditor
-                  initialContent={topicNote?.content_html || `<h2>${topic.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`}
-                  onSave={handleSaveNote}
-                  placeholder="Write detailed notes, code blocks, or checklists..."
-                />
-              </Card>
+              {isEditingNotes ? (
+                <Card className="p-4 bg-card border border-border/80 shadow-xs">
+                  <TiptapEditor
+                    initialContent={
+                      topicNote?.content_html ||
+                      `<h2>${topic.name} Key Points</h2><p>Document your code snippets, command flags, and conceptual notes here...</p>`
+                    }
+                    onSave={handleSaveNote}
+                    placeholder="Write detailed notes, code blocks, or checklists..."
+                  />
+                </Card>
+              ) : (
+                <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs min-h-[220px]">
+                  {topicNote?.content_html ? (
+                    <div
+                      className="tiptap-content prose dark:prose-invert max-w-none text-sm sm:text-base leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: topicNote.content_html }}
+                    />
+                  ) : (
+                    <div className="py-12 text-center space-y-3">
+                      <div className="h-10 w-10 mx-auto rounded-full bg-secondary/80 flex items-center justify-center text-muted-foreground">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">No notes written for this topic yet</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Click edit to start writing notes, code snippets, and architectural breakdowns.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => setIsEditingNotes(true)}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right 1 Col: Mind Maps & Attachments */}
