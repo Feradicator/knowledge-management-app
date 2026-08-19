@@ -97,13 +97,13 @@ export function ReaderPreferencesBar({
           value={fontSize}
           onChange={(e) => onFontSizeChange(e.target.value as ReaderFontSize)}
           aria-label="Reading Font Size"
-          className="h-6 px-1.5 text-[11px] font-semibold bg-transparent border-0 text-foreground focus:outline-none cursor-pointer"
+          className="h-6 px-1.5 text-[11px] font-semibold bg-background text-foreground rounded border border-border/60 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
         >
-          <option value="sm">Small</option>
-          <option value="base">Normal</option>
-          <option value="lg">Large</option>
-          <option value="xl">Extra Large</option>
-          <option value="2xl">2X Large</option>
+          <option value="sm" className="bg-card text-foreground py-1">Small (14px)</option>
+          <option value="base" className="bg-card text-foreground py-1">Normal (16px)</option>
+          <option value="lg" className="bg-card text-foreground py-1">Large (18px)</option>
+          <option value="xl" className="bg-card text-foreground py-1">Extra Large (20px)</option>
+          <option value="2xl" className="bg-card text-foreground py-1">2X Large (22px)</option>
         </select>
 
         <button

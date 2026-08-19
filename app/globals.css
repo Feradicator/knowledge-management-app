@@ -244,3 +244,27 @@ main:has([data-page-container="full-height"]) {
   overflow: hidden !important;
   padding-bottom: 0.5rem !important;
 }
+
+/* Ensure native dropdown popups have proper text contrast in all modes */
+select {
+  color-scheme: light dark;
+}
+
+.dark select {
+  color-scheme: dark;
+}
+
+select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+:root:not(.dark) select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}

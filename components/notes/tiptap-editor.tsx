@@ -206,15 +206,15 @@ export function TiptapEditor({
               value={editor.getAttributes("textStyle").fontSize || "default"}
               className="h-7 px-1.5 text-xs rounded-md bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-medium"
             >
-              <option value="default">Font Size</option>
-              <option value="12px">12px (Small)</option>
-              <option value="14px">14px (Normal)</option>
-              <option value="16px">16px (Medium)</option>
-              <option value="18px">18px (Large)</option>
-              <option value="20px">20px (XL)</option>
-              <option value="24px">24px (Title)</option>
-              <option value="28px">28px (Hero)</option>
-              <option value="32px">32px (Huge)</option>
+              <option value="default" className="bg-card text-foreground py-1">Font Size</option>
+              <option value="12px" className="bg-card text-foreground py-1">12px (Small)</option>
+              <option value="14px" className="bg-card text-foreground py-1">14px (Normal)</option>
+              <option value="16px" className="bg-card text-foreground py-1">16px (Medium)</option>
+              <option value="18px" className="bg-card text-foreground py-1">18px (Large)</option>
+              <option value="20px" className="bg-card text-foreground py-1">20px (XL)</option>
+              <option value="24px" className="bg-card text-foreground py-1">24px (Title)</option>
+              <option value="28px" className="bg-card text-foreground py-1">28px (Hero)</option>
+              <option value="32px" className="bg-card text-foreground py-1">32px (Huge)</option>
             </select>
           </div>
 
