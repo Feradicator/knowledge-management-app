@@ -22,11 +22,22 @@ import {
   Check,
   Edit2,
   Eye,
+  CornerDownRight,
+  FolderTree,
 } from "lucide-react";
 import { getStatusColor, cn } from "@/lib/utils";
 import { ImageViewerModal } from "@/components/files/image-viewer-modal";
 import { PdfViewerModal } from "@/components/files/pdf-viewer-modal";
 import { Topic } from "@/types/database";
+
+interface FlatTopicItem {
+  topic: Topic;
+  level: number;
+  hierarchicalIndex: string;
+  parentChain: Array<{ id: string; name: string }>;
+  isSubtopic: boolean;
+  rootChapterName: string;
+}
 
 export default function ContinuousTopicBookPage() {
   const params = useParams();
@@ -51,19 +62,45 @@ export default function ContinuousTopicBookPage() {
   const tech = currentTopic ? getTechnologyById(currentTopic.technology_id) : undefined;
   const topicsTree = useMemo(() => (tech ? getTopicTree(tech.id) : []), [tech, getTopicTree]);
 
-  // Flatten the topic tree sequentially to order all chapters in continuous book format
+  // Flatten the topic tree with full ancestry and hierarchy information
   const flatOrderedTopics = useMemo(() => {
-    const flatten = (tree: Topic[]): Topic[] => {
-      let list: Topic[] = [];
-      tree.forEach((t) => {
-        list.push(t);
+    const list: FlatTopicItem[] = [];
+
+    const processTree = (
+      nodes: Topic[],
+      level: number,
+      parentPrefix: string,
+      parentChain: Array<{ id: string; name: string }>,
+      rootName: string
+    ) => {
+      nodes.forEach((t, idx) => {
+        const itemPrefix =
+          level === 0 ? `${idx + 1}.0` : `${parentPrefix}.${idx + 1}`;
+        const currentRootName = level === 0 ? t.name : rootName;
+
+        list.push({
+          topic: t,
+          level,
+          hierarchicalIndex: itemPrefix,
+          parentChain,
+          isSubtopic: level > 0,
+          rootChapterName: currentRootName,
+        });
+
         if (t.subtopics && t.subtopics.length > 0) {
-          list = list.concat(flatten(t.subtopics));
+          processTree(
+            t.subtopics,
+            level + 1,
+            itemPrefix,
+            [...parentChain, { id: t.id, name: t.name }],
+            currentRootName
+          );
         }
       });
-      return list;
     };
-    return flatten(topicsTree);
+
+    processTree(topicsTree, 0, "", [], "");
+    return list;
   }, [topicsTree]);
 
   // State to track which topic is actively highlighted in viewport
@@ -119,8 +156,8 @@ export default function ContinuousTopicBookPage() {
       threshold: [0, 0.1, 0.3, 0.5, 0.8],
     });
 
-    flatOrderedTopics.forEach((t) => {
-      const el = document.getElementById(`topic-section-${t.id}`);
+    flatOrderedTopics.forEach((item) => {
+      const el = document.getElementById(`topic-section-${item.topic.id}`);
       if (el) observer.observe(el);
     });
 
@@ -140,10 +177,11 @@ export default function ContinuousTopicBookPage() {
   };
 
   // Previous & Next navigation relative to active visible topic
-  const currentVisibleIndex = flatOrderedTopics.findIndex((t) => t.id === activeTopicId);
-  const activeVisibleTopic = currentVisibleIndex >= 0 ? flatOrderedTopics[currentVisibleIndex] : currentTopic;
-  const prevTopic = currentVisibleIndex > 0 ? flatOrderedTopics[currentVisibleIndex - 1] : null;
-  const nextTopic =
+  const currentVisibleIndex = flatOrderedTopics.findIndex((t) => t.topic.id === activeTopicId);
+  const activeVisibleItem = currentVisibleIndex >= 0 ? flatOrderedTopics[currentVisibleIndex] : null;
+  const activeVisibleTopic = activeVisibleItem ? activeVisibleItem.topic : currentTopic;
+  const prevItem = currentVisibleIndex > 0 ? flatOrderedTopics[currentVisibleIndex - 1] : null;
+  const nextItem =
     currentVisibleIndex >= 0 && currentVisibleIndex < flatOrderedTopics.length - 1
       ? flatOrderedTopics[currentVisibleIndex + 1]
       : null;
@@ -217,6 +255,25 @@ export default function ContinuousTopicBookPage() {
               <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
             </>
           )}
+
+          {/* Ancestry Breadcrumb if Active Item is a Subtopic */}
+          {activeVisibleItem?.parentChain && activeVisibleItem.parentChain.length > 0 && (
+            <>
+              {activeVisibleItem.parentChain.map((p) => (
+                <React.Fragment key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => handleScrollToTopic(p.id)}
+                    className="text-xs font-medium text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                  >
+                    {p.name}
+                  </button>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
+                </React.Fragment>
+              ))}
+            </>
+          )}
+
           <span className="text-xs font-bold text-foreground">
             {activeVisibleTopic?.name || "Study Guide"}
           </span>
@@ -228,15 +285,15 @@ export default function ContinuousTopicBookPage() {
             Topic {currentVisibleIndex + 1} of {flatOrderedTopics.length}
           </span>
 
-          {prevTopic ? (
+          {prevItem ? (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => handleScrollToTopic(prevTopic.id)}
+              onClick={() => handleScrollToTopic(prevItem.topic.id)}
               className="gap-1 text-xs h-8"
-              title={`Previous: ${prevTopic.name}`}
+              title={`Previous: ${prevItem.topic.name}`}
             >
-              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline truncate max-w-[120px]">{prevTopic.name}</span>
+              <ChevronLeft className="h-4 w-4" /> <span className="hidden sm:inline truncate max-w-[120px]">{prevItem.topic.name}</span>
               <span className="sm:hidden">Prev</span>
             </Button>
           ) : (
@@ -245,14 +302,14 @@ export default function ContinuousTopicBookPage() {
             </Button>
           )}
 
-          {nextTopic ? (
+          {nextItem ? (
             <Button
               size="sm"
-              onClick={() => handleScrollToTopic(nextTopic.id)}
+              onClick={() => handleScrollToTopic(nextItem.topic.id)}
               className="gap-1 text-xs h-8 shadow-xs"
-              title={`Next: ${nextTopic.name}`}
+              title={`Next: ${nextItem.topic.name}`}
             >
-              <span className="hidden sm:inline truncate max-w-[120px]">{nextTopic.name}</span>
+              <span className="hidden sm:inline truncate max-w-[120px]">{nextItem.topic.name}</span>
               <span className="sm:hidden">Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -285,7 +342,8 @@ export default function ContinuousTopicBookPage() {
           id="topics-scroll-container"
           className="flex-1 min-w-0 h-full overflow-y-auto pr-3 custom-scrollbar space-y-10 pb-16"
         >
-          {flatOrderedTopics.map((topicItem, topicIdx) => {
+          {flatOrderedTopics.map((item) => {
+            const topicItem = item.topic;
             const isCurrentActive = topicItem.id === activeTopicId;
             const noteForTopic = notes.find((n) => n.topic_id === topicItem.id);
             const isEditingThis = editingTopicId === topicItem.id;
@@ -298,24 +356,52 @@ export default function ContinuousTopicBookPage() {
                 key={topicItem.id}
                 id={`topic-section-${topicItem.id}`}
                 data-topic-id={topicItem.id}
-                className="scroll-mt-6 space-y-4 pt-2 border-b border-border/40 pb-10 last:border-b-0 transition-all"
+                className={cn(
+                  "scroll-mt-6 space-y-4 pt-2 border-b border-border/40 pb-10 last:border-b-0 transition-all",
+                  item.isSubtopic ? "sm:pl-4 sm:border-l-2 sm:border-l-primary/20 ml-1" : ""
+                )}
               >
+                {/* Clear Hierarchy / Parent Reference Pill if Subtopic */}
+                {item.isSubtopic && item.parentChain.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium bg-secondary/50 px-3 py-1 rounded-lg border border-border/60 w-fit flex-wrap">
+                    <CornerDownRight className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-[11px] font-semibold text-primary">Part of:</span>
+                    {item.parentChain.map((p, pIdx) => (
+                      <React.Fragment key={p.id}>
+                        {pIdx > 0 && <ChevronRight className="h-3 w-3 opacity-60 text-muted-foreground" />}
+                        <button
+                          type="button"
+                          onClick={() => handleScrollToTopic(p.id)}
+                          className="hover:text-primary hover:underline font-semibold text-foreground transition-colors cursor-pointer"
+                          title={`Jump to parent: ${p.name}`}
+                        >
+                          {p.name}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
                 {/* Topic Header Banner */}
                 <div
                   className={cn(
                     "px-4 py-3 rounded-xl bg-card border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs",
                     isCurrentActive
                       ? "border-primary/60 ring-1 ring-primary/20 bg-card"
-                      : "border-border/80"
+                      : "border-border/80",
+                    item.isSubtopic ? "border-l-4 border-l-primary/60" : ""
                   )}
-                  style={{ borderLeft: `4px solid ${tech?.color || "#6366f1"}` }}
+                  style={!item.isSubtopic ? { borderLeft: `4px solid ${tech?.color || "#6366f1"}` } : undefined}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-wrap">
                     <span
-                      className="px-2 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs"
-                      style={{ backgroundColor: tech?.color || "#6366f1" }}
+                      className={cn(
+                        "px-2.5 py-0.5 rounded-md text-[11px] font-bold text-white shadow-xs",
+                        item.isSubtopic ? "bg-indigo-600/90 dark:bg-indigo-500/90" : ""
+                      )}
+                      style={!item.isSubtopic ? { backgroundColor: tech?.color || "#6366f1" } : undefined}
                     >
-                      {topicItem.parent_topic_id ? "Subtopic" : "Chapter"}
+                      {item.isSubtopic ? `Subtopic ${item.hierarchicalIndex}` : `Chapter ${item.hierarchicalIndex}`}
                     </span>
 
                     <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
