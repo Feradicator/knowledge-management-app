@@ -534,7 +534,7 @@ export default function ContinuousTopicBookPage() {
                 {/* Notes Container: Reading View with Theme & Font Size vs Tiptap Editor */}
                 <div className="space-y-4">
                   {isEditingThis && isOwner ? (
-                    <Card className="p-4 bg-card border border-border/80 shadow-xs">
+                    <div className="w-full">
                       <TiptapEditor
                         initialContent={
                           noteForTopic?.content_html ||
@@ -543,7 +543,7 @@ export default function ContinuousTopicBookPage() {
                         onSave={(html) => handleSaveNoteForTopic(topicItem, html)}
                         placeholder="Write detailed notes, code blocks, or checklists..."
                       />
-                    </Card>
+                    </div>
                   ) : (
                     <div
                       className={cn(

@@ -146,9 +146,9 @@ export function TiptapEditor({
   if (!editor) return null;
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
-      {/* Editor Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-1 p-2 bg-secondary/50 border-b border-border/60">
+    <div className="rounded-2xl border border-border/80 bg-card shadow-sm relative">
+      {/* Editor Toolbar - Sticky when scrolling long notes */}
+      <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-1.5 p-2 bg-card/95 dark:bg-card/95 backdrop-blur-md border-b border-border/80 rounded-t-2xl shadow-xs transition-shadow">
         <div className="flex flex-wrap items-center gap-0.5">
           {/* Headings */}
           <button
@@ -158,7 +158,7 @@ export function TiptapEditor({
               "p-1.5 rounded-lg text-xs font-bold transition-colors",
               editor.isActive("heading", { level: 1 })
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-card hover:text-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             )}
             title="Heading 1"
           >
