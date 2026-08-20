@@ -113,60 +113,53 @@ export default function NoteDetailPage() {
             />
           )}
 
-          {/* Edit / Reading Mode Toggle */}
-          {isEditing ? (
-            <Button
-              size="sm"
-              variant="subtle"
-              onClick={() => setIsEditing(false)}
-              className="gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
-            >
-              <Eye className="h-3.5 w-3.5" /> Done (Reading View)
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                if (requireOwner("edit this note")) {
-                  setIsEditing(true);
-                }
-              }}
-              className="gap-1.5 text-xs font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
-            >
-              <Edit2 className="h-3.5 w-3.5" /> Edit Note
-            </Button>
-          )}
+          {/* Owner Actions: Edit / Favorite / Delete */}
+          {isOwner && (
+            <>
+              {/* Edit / Reading Mode Toggle */}
+              {isEditing ? (
+                <Button
+                  size="sm"
+                  variant="subtle"
+                  onClick={() => setIsEditing(false)}
+                  className="gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                >
+                  <Eye className="h-3.5 w-3.5" /> Done (Reading View)
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsEditing(true)}
+                  className="gap-1.5 text-xs font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
+                >
+                  <Edit2 className="h-3.5 w-3.5" /> Edit Note
+                </Button>
+              )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (requireOwner("save favorite notes")) {
-                toggleFavoriteNote(note.id);
-              }
-            }}
-            className="gap-1.5 text-xs h-8"
-          >
-            <Star
-              className={`h-3.5 w-3.5 ${
-                note.is_favorite ? "fill-amber-400 text-amber-400" : ""
-              }`}
-            />
-            <span className="hidden sm:inline">{note.is_favorite ? "Favorited" : "Favorite"}</span>
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon-sm"
-            onClick={() => {
-              if (requireOwner("delete this note")) {
-                handleDelete();
-              }
-            }}
-            title="Delete note"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleFavoriteNote(note.id)}
+                className="gap-1.5 text-xs h-8"
+              >
+                <Star
+                  className={`h-3.5 w-3.5 ${
+                    note.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">{note.is_favorite ? "Favorited" : "Favorite"}</span>
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon-sm"
+                onClick={handleDelete}
+                title="Delete note"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -344,9 +337,11 @@ export default function NoteDetailPage() {
               <div className="py-16 text-center space-y-3">
                 <FileText className="h-10 w-10 text-muted-foreground mx-auto" />
                 <p className="text-sm font-semibold text-foreground">This note is currently empty.</p>
-                <Button size="sm" onClick={() => setIsEditing(true)} className="gap-1.5 text-xs">
-                  <Edit2 className="h-3.5 w-3.5" /> Start Writing
-                </Button>
+                {isOwner && (
+                  <Button size="sm" onClick={() => setIsEditing(true)} className="gap-1.5 text-xs">
+                    <Edit2 className="h-3.5 w-3.5" /> Start Writing
+                  </Button>
+                )}
               </div>
             )}
           </div>

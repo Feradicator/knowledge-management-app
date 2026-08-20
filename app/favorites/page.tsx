@@ -30,6 +30,7 @@ export default function FavoritesPage() {
     toggleFavoriteTopic,
     toggleFavoriteNote,
     toggleFavoriteMindMap,
+    isOwner,
   } = useLearningStore();
 
   const [activeTab, setActiveTab] = useState("all");
@@ -109,9 +110,13 @@ export default function FavoritesPage() {
                           <Badge variant="secondary" className="text-[10px] mt-0.5">{tech.category}</Badge>
                         </div>
                       </div>
-                      <button onClick={() => toggleFavoriteTechnology(tech.id)} className="text-amber-400 p-1">
-                        <Star className="h-4 w-4 fill-amber-400" />
-                      </button>
+                      {isOwner ? (
+                        <button onClick={() => toggleFavoriteTechnology(tech.id)} className="text-amber-400 p-1">
+                          <Star className="h-4 w-4 fill-amber-400" />
+                        </button>
+                      ) : (
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      )}
                     </div>
 
                     <div className="mt-4 pt-2 border-t border-border/40">
@@ -148,9 +153,13 @@ export default function FavoritesPage() {
                           >
                             {tech?.name || "Topic"}
                           </span>
-                          <button onClick={() => toggleFavoriteTopic(topic.id)} className="text-amber-400 p-1">
-                            <Star className="h-4 w-4 fill-amber-400" />
-                          </button>
+                          {isOwner ? (
+                            <button onClick={() => toggleFavoriteTopic(topic.id)} className="text-amber-400 p-1">
+                              <Star className="h-4 w-4 fill-amber-400" />
+                            </button>
+                          ) : (
+                            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                          )}
                         </div>
 
                         <Link href={`/topics/${topic.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors block">
@@ -188,9 +197,13 @@ export default function FavoritesPage() {
                         <Link href={`/notes/${note.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors line-clamp-2">
                           {note.title}
                         </Link>
-                        <button onClick={() => toggleFavoriteNote(note.id)} className="text-amber-400 p-1 shrink-0">
-                          <Star className="h-4 w-4 fill-amber-400" />
-                        </button>
+                        {isOwner ? (
+                          <button onClick={() => toggleFavoriteNote(note.id)} className="text-amber-400 p-1 shrink-0">
+                            <Star className="h-4 w-4 fill-amber-400" />
+                          </button>
+                        ) : (
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-1 mt-2">
                         {note.tags.map((t) => (
@@ -224,9 +237,13 @@ export default function FavoritesPage() {
                         <Link href={`/mind-maps/${map.id}`} className="font-bold text-sm text-foreground hover:text-primary transition-colors">
                           {map.title}
                         </Link>
-                        <button onClick={() => toggleFavoriteMindMap(map.id)} className="text-amber-400 p-1 shrink-0">
-                          <Star className="h-4 w-4 fill-amber-400" />
-                        </button>
+                        {isOwner ? (
+                          <button onClick={() => toggleFavoriteMindMap(map.id)} className="text-amber-400 p-1 shrink-0">
+                            <Star className="h-4 w-4 fill-amber-400" />
+                          </button>
+                        ) : (
+                          <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{map.description}</p>
                     </div>

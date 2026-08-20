@@ -14,7 +14,7 @@ interface ChecklistManagerProps {
 }
 
 export function ChecklistManager({ topicId, accentColor }: ChecklistManagerProps) {
-  const { getTopicChecklist, addChecklistItem, toggleChecklistItem, deleteChecklistItem } =
+  const { getTopicChecklist, addChecklistItem, toggleChecklistItem, deleteChecklistItem, isOwner } =
     useLearningStore();
   const [newItemTitle, setNewItemTitle] = useState("");
 
@@ -47,32 +47,37 @@ export function ChecklistManager({ topicId, accentColor }: ChecklistManagerProps
       {/* Checklist Progress */}
       <Progress value={percentage} indicatorColor={accentColor} size="sm" />
 
-      {/* Add New Item Form */}
-      <form onSubmit={handleAddItem} className="flex items-center gap-2 pt-1">
-        <Input
-          placeholder="Add a checklist concept (e.g. 'Access token expiration', 'Signing keys')..."
-          value={newItemTitle}
-          onChange={(e) => setNewItemTitle(e.target.value)}
-          className="text-xs sm:text-sm"
-        />
-        <Button type="submit" size="sm" className="gap-1 shrink-0">
-          <Plus className="h-4 w-4" /> Add
-        </Button>
-      </form>
+      {/* Add New Item Form (Owner Only) */}
+      {isOwner && (
+        <form onSubmit={handleAddItem} className="flex items-center gap-2 pt-1">
+          <Input
+            placeholder="Add a checklist concept (e.g. 'Access token expiration', 'Signing keys')..."
+            value={newItemTitle}
+            onChange={(e) => setNewItemTitle(e.target.value)}
+            className="text-xs sm:text-sm"
+          />
+          <Button type="submit" size="sm" className="gap-1 shrink-0">
+            <Plus className="h-4 w-4" /> Add
+          </Button>
+        </form>
+      )}
 
       {/* Items List */}
       <div className="space-y-2 pt-2">
         {items.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">
-            No checklist items yet. Add atomic milestones to master this topic!
+            No checklist items yet.
           </p>
         ) : (
           items.map((item) => (
             <div
               key={item.id}
-              onClick={() => toggleChecklistItem(item.id)}
+              onClick={() => {
+                if (isOwner) toggleChecklistItem(item.id);
+              }}
               className={cn(
-                "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none group",
+                "flex items-center justify-between p-3 rounded-xl border transition-all select-none group",
+                isOwner ? "cursor-pointer" : "cursor-default",
                 item.is_completed
                   ? "bg-secondary/40 border-border/60 text-muted-foreground"
                   : "bg-card border-border/80 hover:border-primary/40 text-foreground"
@@ -81,6 +86,7 @@ export function ChecklistManager({ topicId, accentColor }: ChecklistManagerProps
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <button
                   type="button"
+                  disabled={!isOwner}
                   className={cn(
                     "flex h-5 w-5 items-center justify-center rounded-md border transition-colors shrink-0",
                     item.is_completed
@@ -100,17 +106,19 @@ export function ChecklistManager({ topicId, accentColor }: ChecklistManagerProps
                 </span>
               </div>
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteChecklistItem(item.id);
-                }}
-                className="p-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-secondary transition-all"
-                title="Delete item"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteChecklistItem(item.id);
+                  }}
+                  className="p-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive hover:bg-secondary transition-all"
+                  title="Delete item"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           ))
         )}

@@ -423,110 +423,117 @@ export default function ContinuousTopicBookPage() {
                       {topicItem.name}
                     </h2>
 
-                    {/* Completed Checkbox Toggle */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!requireOwner("update topic completion progress")) return;
-                        if (isCompleted) {
-                          updateTopic(topicItem.id, {
-                            status: "Not Started",
-                            progress: 0,
-                            completed_at: null,
-                          });
-                        } else {
-                          updateTopic(topicItem.id, {
-                            status: "Completed",
-                            progress: 100,
-                            completed_at: new Date().toISOString(),
-                          });
-                        }
-                      }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
-                        isCompleted
-                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                          : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/30"
-                      }`}
-                      title={isCompleted ? "Click to mark as Incomplete" : "Click to mark as Completed"}
-                    >
-                      <div
-                        className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-all ${
-                          isCompleted
-                            ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
-                            : "border-muted-foreground/50 bg-background"
-                        }`}
-                      >
-                        {isCompleted && <Check className="h-2.5 w-2.5 stroke-[3]" />}
-                      </div>
-                      <span className="text-[11px]">
-                        {isCompleted ? "Completed ✓" : "Mark Done"}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Actions: Edit Notes, Favorite & Log Time */}
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    {isEditingThis ? (
-                      <Button
-                        size="sm"
-                        variant="subtle"
-                        onClick={() => setEditingTopicId(null)}
-                        className="gap-1.5 text-xs h-8 font-semibold text-emerald-600 dark:text-emerald-400"
-                      >
-                        <Eye className="h-3.5 w-3.5" /> Done (Reading View)
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                    {/* Completed Status / Toggle */}
+                    {isOwner ? (
+                      <button
+                        type="button"
                         onClick={() => {
-                          if (requireOwner("edit topic notes")) {
-                            setEditingTopicId(topicItem.id);
+                          if (isCompleted) {
+                            updateTopic(topicItem.id, {
+                              status: "Not Started",
+                              progress: 0,
+                              completed_at: null,
+                            });
+                          } else {
+                            updateTopic(topicItem.id, {
+                              status: "Completed",
+                              progress: 100,
+                              completed_at: new Date().toISOString(),
+                            });
                           }
                         }}
-                        className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" /> Edit Notes
-                      </Button>
-                    )}
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (requireOwner("save favorite topics")) {
-                          toggleFavoriteTopic(topicItem.id);
-                        }
-                      }}
-                      className="gap-1 text-xs h-8"
-                    >
-                      <Star
-                        className={`h-3.5 w-3.5 ${
-                          topicItem.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all cursor-pointer select-none ${
+                          isCompleted
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                            : "border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/30"
                         }`}
-                      />
-                      <span className="hidden sm:inline">{topicItem.is_favorite ? "Favorited" : "Favorite"}</span>
-                    </Button>
+                        title={isCompleted ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+                      >
+                        <div
+                          className={`h-3.5 w-3.5 rounded flex items-center justify-center border transition-all ${
+                            isCompleted
+                              ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                              : "border-muted-foreground/50 bg-background"
+                          }`}
+                        >
+                          {isCompleted && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
+                        <span className="text-[11px]">
+                          {isCompleted ? "Completed ✓" : "Mark Done"}
+                        </span>
+                      </button>
+                    ) : (
+                      <div
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold select-none ${
+                          isCompleted
+                            ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                            : "border-border text-muted-foreground bg-secondary/30"
+                        }`}
+                      >
+                        <span className="text-[11px]">
+                          {isCompleted ? "Completed ✓" : topicItem.status || "Not Started"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
 
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (requireOwner("log study time")) {
-                          setSessionTopic(topicItem);
-                          setIsLogSessionOpen(true);
-                        }
-                      }}
-                      className="gap-1 text-xs h-8 shadow-xs"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>Log Time</span>
-                    </Button>
+                  {/* Actions: Edit Notes, Favorite & Log Time (Only for Owner) */}
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {isOwner && (
+                      <>
+                        {isEditingThis ? (
+                          <Button
+                            size="sm"
+                            variant="subtle"
+                            onClick={() => setEditingTopicId(null)}
+                            className="gap-1.5 text-xs h-8 font-semibold text-emerald-600 dark:text-emerald-400"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Done (Reading View)
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingTopicId(topicItem.id)}
+                            className="gap-1.5 text-xs h-8 font-semibold border-primary/40 hover:bg-primary/10 text-primary shadow-xs"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" /> Edit Notes
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleFavoriteTopic(topicItem.id)}
+                          className="gap-1 text-xs h-8"
+                        >
+                          <Star
+                            className={`h-3.5 w-3.5 ${
+                              topicItem.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                            }`}
+                          />
+                          <span className="hidden sm:inline">{topicItem.is_favorite ? "Favorited" : "Favorite"}</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSessionTopic(topicItem);
+                            setIsLogSessionOpen(true);
+                          }}
+                          className="gap-1 text-xs h-8 shadow-xs"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Log Time</span>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Notes Container: Reading View with Theme & Font Size vs Tiptap Editor */}
                 <div className="space-y-4">
-                  {isEditingThis ? (
+                  {isEditingThis && isOwner ? (
                     <Card className="p-4 bg-card border border-border/80 shadow-xs">
                       <TiptapEditor
                         initialContent={
@@ -555,19 +562,17 @@ export default function ContinuousTopicBookPage() {
                         />
                       ) : (
                         <div className="py-8 text-center space-y-2">
-                          <p className="text-xs text-muted-foreground">No notes written for this topic yet.</p>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (requireOwner("write topic notes")) {
-                                setEditingTopicId(topicItem.id);
-                              }
-                            }}
-                            className="gap-1.5 text-xs border-dashed"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes
-                          </Button>
+                          <p className="text-xs text-muted-foreground">No notes documented for this topic yet.</p>
+                          {isOwner && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingTopicId(topicItem.id)}
+                              className="gap-1.5 text-xs border-dashed"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" /> Start Writing Notes
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>

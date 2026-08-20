@@ -32,6 +32,7 @@ export default function SettingsPage() {
     exportDataBackup,
     importDataBackup,
     stats,
+    isOwner,
   } = useLearningStore();
 
   const [hasSupabase, setHasSupabase] = useState(false);
@@ -181,30 +182,32 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Sample Data & Vault Management */}
-      <Card className="p-6 space-y-4">
-        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-indigo-500" /> Sample Data & Vault Seeder
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Pre-populate realistic technical roadmaps (Java, Spring Boot with JWT checklists, React, Docker, Postgres, AI) or clear the vault to start clean.
-        </p>
+      {/* Sample Data & Vault Management (Only for Owner) */}
+      {isOwner && (
+        <Card className="p-6 space-y-4">
+          <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-indigo-500" /> Sample Data & Vault Seeder
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Pre-populate realistic technical roadmaps (Java, Spring Boot with JWT checklists, React, Docker, Postgres, AI) or clear the vault to start clean.
+          </p>
 
-        <div className="flex flex-wrap gap-3 pt-2">
-          <Button onClick={handleSeed} variant="secondary" className="gap-2 text-xs font-semibold">
-            <RefreshCw className="h-4 w-4 text-primary" /> Seed Realistic Sample Roadmaps
-          </Button>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button onClick={handleSeed} variant="secondary" className="gap-2 text-xs font-semibold">
+              <RefreshCw className="h-4 w-4 text-primary" /> Seed Realistic Sample Roadmaps
+            </Button>
 
-          <Button onClick={handleClear} variant="destructive" className="gap-2 text-xs font-semibold">
-            <Trash2 className="h-4 w-4" /> Wipe Entire Vault Data
-          </Button>
-        </div>
-      </Card>
+            <Button onClick={handleClear} variant="destructive" className="gap-2 text-xs font-semibold">
+              <Trash2 className="h-4 w-4" /> Wipe Entire Vault Data
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Backup & Restore */}
       <Card className="p-6 space-y-4">
         <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-          <Download className="h-5 w-5 text-emerald-500" /> Backup & Restore Vault
+          <Download className="h-5 w-5 text-emerald-500" /> Backup & Export Vault
         </h2>
         <p className="text-xs text-muted-foreground">
           Export your entire learning history, notes, mind maps, and checklists to an offline JSON backup.
@@ -215,17 +218,19 @@ export default function SettingsPage() {
             <Download className="h-4 w-4" /> Export Backup (JSON)
           </Button>
 
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleImportFile}
-              className="hidden"
-            />
-            <span className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-xs font-medium hover:bg-accent transition-colors">
-              <Upload className="h-4 w-4" /> Import Backup File
-            </span>
-          </label>
+          {isOwner && (
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportFile}
+                className="hidden"
+              />
+              <span className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-xs font-medium hover:bg-accent transition-colors">
+                <Upload className="h-4 w-4" /> Import Backup File
+              </span>
+            </label>
+          )}
         </div>
 
         {importStatus && (

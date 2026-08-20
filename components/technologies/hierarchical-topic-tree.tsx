@@ -124,89 +124,94 @@ function TreeNodeItem({ topic, level, onAddSubtopic, accentColor }: TreeNodeItem
           </div>
         </div>
 
-        {/* Right Completed Checkbox & Actions */}
+        {/* Right Completed Status & Actions */}
         <div className="flex items-center gap-3 shrink-0">
-          {/* Completed Checkbox */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!requireOwner("update topic completion")) return;
-              const isCompleted = topic.status === "Completed" || topic.progress === 100;
-              if (isCompleted) {
-                updateTopic(topic.id, {
-                  status: "Not Started",
-                  progress: 0,
-                  completed_at: null,
-                });
-              } else {
-                updateTopic(topic.id, {
-                  status: "Completed",
-                  progress: 100,
-                  completed_at: new Date().toISOString(),
-                });
-              }
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
-              topic.status === "Completed" || topic.progress === 100
-                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
-            }`}
-            title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
-          >
-            <div
-              className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+          {/* Completed Checkbox / Status Badge */}
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const isCompleted = topic.status === "Completed" || topic.progress === 100;
+                if (isCompleted) {
+                  updateTopic(topic.id, {
+                    status: "Not Started",
+                    progress: 0,
+                    completed_at: null,
+                  });
+                } else {
+                  updateTopic(topic.id, {
+                    status: "Completed",
+                    progress: 100,
+                    completed_at: new Date().toISOString(),
+                  });
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
                 topic.status === "Completed" || topic.progress === 100
-                  ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
-                  : "border-muted-foreground/50 bg-background"
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                  : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
+              }`}
+              title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
+            >
+              <div
+                className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+                  topic.status === "Completed" || topic.progress === 100
+                    ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                    : "border-muted-foreground/50 bg-background"
+                }`}
+              >
+                {(topic.status === "Completed" || topic.progress === 100) && (
+                  <Check className="h-3 w-3 stroke-[3]" />
+                )}
+              </div>
+              <span className="text-[11px] font-semibold hidden sm:inline">
+                {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
+              </span>
+            </button>
+          ) : (
+            <div
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-semibold select-none ${
+                topic.status === "Completed" || topic.progress === 100
+                  ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                  : "border-border/80 text-muted-foreground bg-secondary/40"
               }`}
             >
-              {(topic.status === "Completed" || topic.progress === 100) && (
-                <Check className="h-3 w-3 stroke-[3]" />
-              )}
+              <span>{topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : topic.status}</span>
             </div>
-            <span className="text-[11px] font-semibold hidden sm:inline">
-              {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
-            </span>
-          </button>
+          )}
 
-          {/* Quick Actions */}
+          {/* Actions */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => {
-                if (requireOwner("add subtopic")) {
-                  onAddSubtopic(topic.id, topic.name);
-                }
-              }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
-              title="Add subtopic here"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => {
-                if (requireOwner("edit topic")) {
-                  setIsEditing(true);
-                }
-              }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title="Edit topic"
-            >
-              <Edit2 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => {
-                if (requireOwner("delete topic")) {
-                  if (confirm(`Delete topic '${topic.name}' and all subtopics?`)) {
-                    deleteTopic(topic.id);
-                  }
-                }
-              }}
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
-              title="Delete topic"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {isOwner && (
+              <>
+                <button
+                  onClick={() => onAddSubtopic(topic.id, topic.name)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+                  title="Add subtopic here"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  title="Edit topic"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete topic '${topic.name}' and all subtopics?`)) {
+                      deleteTopic(topic.id);
+                    }
+                  }}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
+                  title="Delete topic"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            )}
             <Link href={`/topics/${topic.id}`}>
               <Button size="icon-sm" variant="subtle" title="Open Learning Page">
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -341,9 +346,11 @@ export function HierarchicalTopicTree({ technologyId, accentColor }: Hierarchica
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
             Start decomposing this technology into foundational topics, modules, and subtopics.
           </p>
-          <Button onClick={handleOpenAddRoot} size="sm" className="mt-4 gap-1.5">
-            <Plus className="h-4 w-4" /> Add First Topic
-          </Button>
+          {isOwner && (
+            <Button onClick={handleOpenAddRoot} size="sm" className="mt-4 gap-1.5">
+              <Plus className="h-4 w-4" /> Add First Topic
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -351,9 +358,11 @@ export function HierarchicalTopicTree({ technologyId, accentColor }: Hierarchica
             <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
               <FolderTree className="h-5 w-5 text-primary" /> Topic Hierarchy & Roadmap
             </h3>
-            <Button onClick={handleOpenAddRoot} size="sm" variant="outline" className="gap-1.5 text-xs">
-              <Plus className="h-3.5 w-3.5" /> Add Root Topic
-            </Button>
+            {isOwner && (
+              <Button onClick={handleOpenAddRoot} size="sm" variant="outline" className="gap-1.5 text-xs">
+                <Plus className="h-3.5 w-3.5" /> Add Root Topic
+              </Button>
+            )}
           </div>
 
           <div className="space-y-2">

@@ -25,7 +25,7 @@ import { formatRelativeDate } from "@/lib/utils";
 
 export default function NotesPage() {
   const router = useRouter();
-  const { notes, technologies, topics, addNote, deleteNote, toggleFavoriteNote } = useLearningStore();
+  const { notes, technologies, topics, addNote, deleteNote, toggleFavoriteNote, isOwner } = useLearningStore();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTech, setSelectedTech] = useState("All");
@@ -58,19 +58,22 @@ export default function NotesPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const tags = newTags
+    const tagsArray = newTags
       .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
+      .map((t) => t.trim().replace(/^#/, ""))
+      .filter((t) => t.length > 0);
 
     const note = addNote({
+      technology_id: newTechId || undefined,
       title: newTitle,
-      technology_id: newTechId || null,
-      tags,
-      content_html: `<h2>${newTitle}</h2><p>Document technical concepts, code snippets, and architecture notes...</p>`,
+      content_html: "",
+      tags: tagsArray,
     });
 
     setIsAddOpen(false);
+    setNewTitle("");
+    setNewTechId("");
+    setNewTags("");
     router.push(`/notes/${note.id}`);
   };
 
@@ -94,9 +97,11 @@ export default function NotesPage() {
               </Button>
             </Link>
           )}
-          <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
-            <Plus className="h-4 w-4" /> Create Note
-          </Button>
+          {isOwner && (
+            <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
+              <Plus className="h-4 w-4" /> Create Note
+            </Button>
+          )}
         </div>
       </div>
 
@@ -166,9 +171,11 @@ export default function NotesPage() {
               ? "No notes match your current filters."
               : "Capture your first technical breakdown or learning reflection!"}
           </p>
-          <Button onClick={() => setIsAddOpen(true)} className="mt-4 gap-2">
-            <Plus className="h-4 w-4" /> Create Note
-          </Button>
+          {isOwner && (
+            <Button onClick={() => setIsAddOpen(true)} className="mt-4 gap-2">
+              <Plus className="h-4 w-4" /> Create Note
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -207,30 +214,32 @@ export default function NotesPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleFavoriteNote(note.id)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-amber-500 transition-colors"
-                        title={note.is_favorite ? "Remove from favorites" : "Favorite"}
-                      >
-                        <Star
-                          className={`h-4 w-4 ${
-                            note.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                          }`}
-                        />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete note '${note.title}'?`)) {
-                            deleteNote(note.id);
-                          }
-                        }}
-                        className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete note"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {isOwner && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleFavoriteNote(note.id)}
+                          className="p-1 rounded-md text-muted-foreground hover:text-amber-500 transition-colors"
+                          title={note.is_favorite ? "Remove from favorites" : "Favorite"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${
+                              note.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete note '${note.title}'?`)) {
+                              deleteNote(note.id);
+                            }
+                          }}
+                          className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete note"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Title */}

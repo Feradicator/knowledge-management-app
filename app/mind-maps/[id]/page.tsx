@@ -29,6 +29,7 @@ export default function MindMapDetailPage() {
     updateMindMap,
     deleteMindMap,
     toggleFavoriteMindMap,
+    isOwner,
   } = useLearningStore();
 
   const map = getMindMapById(id);
@@ -113,27 +114,31 @@ export default function MindMapDetailPage() {
               </Button>
             </Link>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toggleFavoriteMindMap(map.id)}
-            className="gap-1.5"
-          >
-            <Star
-              className={`h-4 w-4 ${
-                map.is_favorite ? "fill-amber-400 text-amber-400" : ""
-              }`}
-            />
-            <span className="hidden sm:inline">{map.is_favorite ? "Favorited" : "Favorite"}</span>
-          </Button>
-          <Button
-            variant="destructive"
-            size="icon-sm"
-            onClick={handleDelete}
-            title="Delete mind map"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {isOwner && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleFavoriteMindMap(map.id)}
+                className="gap-1.5"
+              >
+                <Star
+                  className={`h-4 w-4 ${
+                    map.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                  }`}
+                />
+                <span className="hidden sm:inline">{map.is_favorite ? "Favorited" : "Favorite"}</span>
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon-sm"
+                onClick={handleDelete}
+                title="Delete mind map"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

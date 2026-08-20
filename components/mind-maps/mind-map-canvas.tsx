@@ -50,7 +50,7 @@ const nodeTypes = {
 };
 
 export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
-  const { updateMindMap } = useLearningStore();
+  const { updateMindMap, isOwner } = useLearningStore();
 
   // Convert stored nodes/edges to state
   const rawNodes: Node[] = useMemo(() => {
@@ -315,27 +315,6 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
               <Minus className="h-3.5 w-3.5" /> Collapse to Tech
             </Button>
 
-            <div className="h-4 w-px bg-border/80 mx-1" />
-
-            <Button
-              size="sm"
-              onClick={() => setIsAddNodeOpen(true)}
-              className="gap-1.5 text-xs font-semibold shadow-sm h-8"
-            >
-              <Plus className="h-4 w-4" /> Add Branch
-            </Button>
-
-            {selectedNode && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={handleDeleteSelected}
-                className="gap-1 text-xs h-8"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </Button>
-            )}
-
             <Button
               size="sm"
               variant="outline"
@@ -346,24 +325,49 @@ export function MindMapCanvas({ mindMap }: MindMapCanvasProps) {
               <Download className="h-3.5 w-3.5" /> Export
             </Button>
 
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleManualSave}
-              className="gap-1 text-xs h-8"
-            >
-              {saveStatus === "saved" ? (
-                <>
-                  <Check className="h-3.5 w-3.5 text-emerald-500" />
-                  <span>Saved</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5 text-amber-500 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              )}
-            </Button>
+            {isOwner && (
+              <>
+                <div className="h-4 w-px bg-border/80 mx-1" />
+
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddNodeOpen(true)}
+                  className="gap-1.5 text-xs font-semibold shadow-sm h-8"
+                >
+                  <Plus className="h-4 w-4" /> Add Branch
+                </Button>
+
+                {selectedNode && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={handleDeleteSelected}
+                    className="gap-1 text-xs h-8"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </Button>
+                )}
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleManualSave}
+                  className="gap-1 text-xs h-8"
+                >
+                  {saveStatus === "saved" ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>Saved</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-3.5 w-3.5 text-amber-500 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </div>
         </Panel>
 

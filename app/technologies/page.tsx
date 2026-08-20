@@ -35,6 +35,7 @@ export default function TechnologiesPage() {
     updateTechnology,
     deleteTechnology,
     toggleFavoriteTechnology,
+    isOwner,
   } = useLearningStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -126,9 +127,11 @@ export default function TechnologiesPage() {
             Organize tech stacks, track overall progress, and create structured topic roadmaps.
           </p>
         </div>
-        <Button onClick={handleOpenAdd} className="gap-2 shadow-sm shadow-primary/25">
-          <Plus className="h-4 w-4" /> Add Technology
-        </Button>
+        {isOwner && (
+          <Button onClick={handleOpenAdd} className="gap-2 shadow-sm shadow-primary/25">
+            <Plus className="h-4 w-4" /> Add Technology
+          </Button>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -213,33 +216,35 @@ export default function TechnologiesPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleFavoriteTechnology(tech.id)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-secondary transition-colors"
-                        title={tech.is_favorite ? "Remove from favorites" : "Add to favorites"}
-                      >
-                        <Star
-                          className={`h-4 w-4 ${
-                            tech.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                          }`}
-                        />
-                      </button>
-                      <button
-                        onClick={(e) => handleOpenEdit(tech, e)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                        title="Edit technology"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDelete(tech.id, tech.name, e)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
-                        title="Delete technology"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {isOwner && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleFavoriteTechnology(tech.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-secondary transition-colors"
+                          title={tech.is_favorite ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${
+                              tech.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => handleOpenEdit(tech, e)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          title="Edit technology"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDelete(tech.id, tech.name, e)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
+                          title="Delete technology"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Description */}

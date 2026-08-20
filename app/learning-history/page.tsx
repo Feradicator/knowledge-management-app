@@ -40,7 +40,7 @@ import {
 import { format, subDays, startOfWeek, startOfMonth, parseISO, isAfter } from "date-fns";
 
 export default function LearningHistoryPage() {
-  const { learningSessions, technologies, topics, addLearningSession, deleteLearningSession } =
+  const { learningSessions, technologies, topics, addLearningSession, deleteLearningSession, isOwner } =
     useLearningStore();
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -147,9 +147,11 @@ export default function LearningHistoryPage() {
             Track study hours, visualize learning trends over time, and inspect session logs.
           </p>
         </div>
-        <Button onClick={() => setIsLogModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
-          <Plus className="h-4 w-4" /> Log Study Session
-        </Button>
+        {isOwner && (
+          <Button onClick={() => setIsLogModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
+            <Plus className="h-4 w-4" /> Log Study Session
+          </Button>
+        )}
       </div>
 
       {/* Summary KPI Cards */}
@@ -313,15 +315,17 @@ export default function LearningHistoryPage() {
                       <span className="font-extrabold text-sm text-primary px-2.5 py-1 rounded-lg bg-primary/10">
                         {formatMinutes(sess.duration_minutes)}
                       </span>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete session '${sess.title}'?`)) deleteLearningSession(sess.id);
-                        }}
-                        className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
-                        title="Delete session"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {isOwner && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete session '${sess.title}'?`)) deleteLearningSession(sess.id);
+                          }}
+                          className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
+                          title="Delete session"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

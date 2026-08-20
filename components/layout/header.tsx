@@ -89,15 +89,17 @@ export function Header() {
             </button>
           )}
 
-          {/* Quick Create Button (Protected by requireOwner) */}
-          <Button
-            size="sm"
-            onClick={handleCreateClick}
-            className="gap-1.5 shadow-sm shadow-primary/25 rounded-xl font-medium"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New Item</span>
-          </Button>
+          {/* Quick Create Button (Only for Owner) */}
+          {isOwner && (
+            <Button
+              size="sm"
+              onClick={handleCreateClick}
+              className="gap-1.5 shadow-sm shadow-primary/25 rounded-xl font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Item</span>
+            </Button>
+          )}
 
           {/* Theme Switcher */}
           <ThemeToggle />

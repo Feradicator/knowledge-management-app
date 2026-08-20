@@ -36,6 +36,7 @@ export default function TopicsCatalogPage() {
     updateTopicProgress,
     deleteTopic,
     toggleFavoriteTopic,
+    isOwner,
   } = useLearningStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -101,9 +102,11 @@ export default function TopicsCatalogPage() {
             Browse, filter, and track technical milestones across all engineering roadmaps.
           </p>
         </div>
-        <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
-          <Plus className="h-4 w-4" /> Add Topic
-        </Button>
+        {isOwner && (
+          <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
+            <Plus className="h-4 w-4" /> Add Topic
+          </Button>
+        )}
       </div>
 
       {/* Filter and Control Bar */}
@@ -176,9 +179,11 @@ export default function TopicsCatalogPage() {
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
             Try adjusting your search criteria or add a new topic to your roadmaps.
           </p>
-          <Button onClick={() => setIsAddModalOpen(true)} className="mt-4 gap-2">
-            <Plus className="h-4 w-4" /> Add Topic
-          </Button>
+          {isOwner && (
+            <Button onClick={() => setIsAddModalOpen(true)} className="mt-4 gap-2">
+              <Plus className="h-4 w-4" /> Add Topic
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="space-y-3">
@@ -244,73 +249,89 @@ export default function TopicsCatalogPage() {
                   )}
                 </div>
 
-                {/* Right Completed Checkbox & Actions */}
+                {/* Right Status & Actions */}
                 <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 border-t md:border-t-0 pt-3 md:pt-0 border-border/50">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const isCompleted = topic.status === "Completed" || topic.progress === 100;
-                      if (isCompleted) {
-                        updateTopic(topic.id, {
-                          status: "Not Started",
-                          progress: 0,
-                          completed_at: null,
-                        });
-                      } else {
-                        updateTopic(topic.id, {
-                          status: "Completed",
-                          progress: 100,
-                          completed_at: new Date().toISOString(),
-                        });
-                      }
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
-                      topic.status === "Completed" || topic.progress === 100
-                        ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                        : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
-                    }`}
-                    title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
-                  >
-                    <div
-                      className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
-                        topic.status === "Completed" || topic.progress === 100
-                          ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
-                          : "border-muted-foreground/50 bg-background"
-                      }`}
-                    >
-                      {(topic.status === "Completed" || topic.progress === 100) && (
-                        <Check className="h-3 w-3 stroke-[3]" />
-                      )}
-                    </div>
-                    <span className="text-[11px] font-semibold">
-                      {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
-                    </span>
-                  </button>
-
-                  <div className="flex items-center gap-1">
+                  {isOwner ? (
                     <button
-                      onClick={() => toggleFavoriteTopic(topic.id)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-secondary transition-colors"
-                      title={topic.is_favorite ? "Remove favorite" : "Favorite"}
-                    >
-                      <Star
-                        className={`h-4 w-4 ${
-                          topic.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Delete topic '${topic.name}'?`)) {
-                          deleteTopic(topic.id);
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const isCompleted = topic.status === "Completed" || topic.progress === 100;
+                        if (isCompleted) {
+                          updateTopic(topic.id, {
+                            status: "Not Started",
+                            progress: 0,
+                            completed_at: null,
+                          });
+                        } else {
+                          updateTopic(topic.id, {
+                            status: "Completed",
+                            progress: 100,
+                            completed_at: new Date().toISOString(),
+                          });
                         }
                       }}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
-                      title="Delete topic"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
+                        topic.status === "Completed" || topic.progress === 100
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                          : "border-border/80 hover:border-primary/50 text-muted-foreground hover:text-foreground bg-secondary/40"
+                      }`}
+                      title={topic.status === "Completed" ? "Click to mark as Incomplete" : "Click to mark as Completed"}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <div
+                        className={`h-4 w-4 rounded-md flex items-center justify-center border transition-all ${
+                          topic.status === "Completed" || topic.progress === 100
+                            ? "bg-emerald-500 border-emerald-500 text-white shadow-xs"
+                            : "border-muted-foreground/50 bg-background"
+                        }`}
+                      >
+                        {(topic.status === "Completed" || topic.progress === 100) && (
+                          <Check className="h-3 w-3 stroke-[3]" />
+                        )}
+                      </div>
+                      <span className="text-[11px] font-semibold">
+                        {topic.status === "Completed" || topic.progress === 100 ? "Completed" : "Mark Done"}
+                      </span>
                     </button>
+                  ) : (
+                    <div
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-semibold select-none ${
+                        topic.status === "Completed" || topic.progress === 100
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
+                          : "border-border/80 text-muted-foreground bg-secondary/40"
+                      }`}
+                    >
+                      <span>{topic.status === "Completed" || topic.progress === 100 ? "Completed ✓" : topic.status}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-1">
+                    {isOwner && (
+                      <>
+                        <button
+                          onClick={() => toggleFavoriteTopic(topic.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-amber-500 hover:bg-secondary transition-colors"
+                          title={topic.is_favorite ? "Remove favorite" : "Favorite"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${
+                              topic.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete topic '${topic.name}'?`)) {
+                              deleteTopic(topic.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-secondary transition-colors"
+                          title="Delete topic"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                     <Link href={`/topics/${topic.id}`}>
                       <Button size="sm" variant="subtle" className="gap-1 text-xs">
                         Study <ArrowRight className="h-3.5 w-3.5" />

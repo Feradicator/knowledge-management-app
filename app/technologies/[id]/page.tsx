@@ -127,21 +127,24 @@ export default function TechnologyDetailPage() {
             </div>
           </div>
 
-          {/* Actions & Favorite Button */}
+          {/* Actions & Buttons */}
           <div className="flex items-center gap-2 self-start flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => toggleFavoriteTechnology(tech.id)}
-              className="gap-1.5"
-            >
-              <Star
-                className={`h-4 w-4 ${
-                  tech.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                }`}
-              />
-              <span>{tech.is_favorite ? "Favorited" : "Favorite"}</span>
-            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggleFavoriteTechnology(tech.id)}
+                className="gap-1.5"
+              >
+                <Star
+                  className={`h-4 w-4 ${
+                    tech.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                  }`}
+                />
+                <span>{tech.is_favorite ? "Favorited" : "Favorite"}</span>
+              </Button>
+            )}
+
             <Link href={`/technologies/${tech.id}/combined-notes`}>
               <Button
                 variant="outline"
@@ -152,23 +155,28 @@ export default function TechnologyDetailPage() {
                 <span>Combined Notes & PDF</span>
               </Button>
             </Link>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateMindMap}
-              className="gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
-            >
-              <Network className="h-4 w-4" />
-              <span>Create Mind Map</span>
-            </Button>
-            <Button
-              variant="destructive"
-              size="icon-sm"
-              onClick={handleDelete}
-              title="Delete technology"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+
+            {isOwner && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateMindMap}
+                  className="gap-1.5 text-primary border-primary/30 hover:bg-primary/10"
+                >
+                  <Network className="h-4 w-4" />
+                  <span>Create Mind Map</span>
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon-sm"
+                  onClick={handleDelete}
+                  title="Delete technology"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
         </div>
 

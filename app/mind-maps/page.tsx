@@ -34,6 +34,7 @@ export default function MindMapsPage() {
     toggleFavoriteMindMap,
     createMindMapFromTechnology,
     createMindMapFromTopic,
+    isOwner,
   } = useLearningStore();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,9 +90,11 @@ export default function MindMapsPage() {
             Design visual concept graphs, map architectural relationships, and organize technical knowledge.
           </p>
         </div>
-        <Button onClick={() => setIsTemplateModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
-          <Plus className="h-4 w-4" /> New Mind Map
-        </Button>
+        {isOwner && (
+          <Button onClick={() => setIsTemplateModalOpen(true)} className="gap-2 shadow-sm shadow-primary/25">
+            <Plus className="h-4 w-4" /> New Mind Map
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -114,9 +117,11 @@ export default function MindMapsPage() {
           <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
             Create an interactive concept graph from a template or start with a blank canvas!
           </p>
-          <Button onClick={() => setIsTemplateModalOpen(true)} className="mt-4 gap-2">
-            <Plus className="h-4 w-4" /> Create First Mind Map
-          </Button>
+          {isOwner && (
+            <Button onClick={() => setIsTemplateModalOpen(true)} className="mt-4 gap-2">
+              <Plus className="h-4 w-4" /> Create First Mind Map
+            </Button>
+          )}
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -149,30 +154,32 @@ export default function MindMapsPage() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => toggleFavoriteMindMap(map.id)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-amber-500 transition-colors"
-                        title={map.is_favorite ? "Remove from favorites" : "Favorite"}
-                      >
-                        <Star
-                          className={`h-4 w-4 ${
-                            map.is_favorite ? "fill-amber-400 text-amber-400" : ""
-                          }`}
-                        />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete mind map '${map.title}'?`)) {
-                            deleteMindMap(map.id);
-                          }
-                        }}
-                        className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
-                        title="Delete mind map"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {isOwner && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleFavoriteMindMap(map.id)}
+                          className="p-1 rounded-md text-muted-foreground hover:text-amber-500 transition-colors"
+                          title={map.is_favorite ? "Remove from favorites" : "Favorite"}
+                        >
+                          <Star
+                            className={`h-4 w-4 ${
+                              map.is_favorite ? "fill-amber-400 text-amber-400" : ""
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete mind map '${map.title}'?`)) {
+                              deleteMindMap(map.id);
+                            }
+                          }}
+                          className="p-1 rounded-md text-muted-foreground hover:text-destructive transition-colors"
+                          title="Delete mind map"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <Link

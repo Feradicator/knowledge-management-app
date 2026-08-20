@@ -200,17 +200,17 @@ export default function FilesPage() {
             Upload PDFs, documents, architecture diagrams, handwritten note photos, and technical cheat sheets.
           </p>
         </div>
-        <Button
-          onClick={() => {
-            if (requireOwner("upload documents or notes")) {
+        {isOwner && (
+          <Button
+            onClick={() => {
               resetUploadForm();
               setIsUploadOpen(true);
-            }
-          }}
-          className="gap-2 shadow-sm shadow-primary/25"
-        >
-          <Upload className="h-4 w-4" /> Upload Document / Note Scan
-        </Button>
+            }}
+            className="gap-2 shadow-sm shadow-primary/25"
+          >
+            <Upload className="h-4 w-4" /> Upload Document / Note Scan
+          </Button>
+        )}
       </div>
 
       {/* Tabs & Filters */}
@@ -347,17 +347,17 @@ export default function FilesPage() {
               <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
                 Upload PDFs, cheat sheets, handwritten sketches, or documentation files directly from your computer.
               </p>
-              <Button
-                onClick={() => {
-                  if (requireOwner("upload documents or notes")) {
+              {isOwner && (
+                <Button
+                  onClick={() => {
                     resetUploadForm();
                     setIsUploadOpen(true);
-                  }
-                }}
-                className="mt-4 gap-2"
-              >
-                <Upload className="h-4 w-4" /> Upload Document
-              </Button>
+                  }}
+                  className="mt-4 gap-2"
+                >
+                  <Upload className="h-4 w-4" /> Upload Document
+                </Button>
+              )}
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -421,17 +421,17 @@ export default function FilesPage() {
                         )
                       )}
 
-                      <button
-                        onClick={() => {
-                          if (requireOwner("delete files")) {
+                      {isOwner && (
+                        <button
+                          onClick={() => {
                             if (confirm(`Delete file '${file.filename}'?`)) deleteFile(file.id);
-                          }
-                        }}
-                        className="text-muted-foreground hover:text-destructive p-1"
-                        title="Delete file"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                          }}
+                          className="text-muted-foreground hover:text-destructive p-1 ml-auto"
+                          title="Delete file"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </Card>
                 );
