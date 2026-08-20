@@ -108,16 +108,9 @@ export default function LoginPage() {
             onClick={handleDemoLogin}
             className="w-full gap-2 text-xs font-semibold"
           >
-            <Sparkles className="h-4 w-4 text-primary" /> Enter Demo Vault (No Login Required)
+            <Sparkles className="h-4 w-4 text-primary" /> Browse Vault in Viewer Mode
           </Button>
         </form>
-
-        <p className="text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link href="/auth/signup" className="text-primary font-semibold hover:underline">
-            Sign up
-          </Link>
-        </p>
       </Card>
     </div>
   );

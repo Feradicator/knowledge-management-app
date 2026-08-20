@@ -9,10 +9,8 @@ import {
   ShieldCheck,
   Mail,
   Lock,
-  User,
   Eye,
   KeyRound,
-  Sparkles,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
@@ -23,45 +21,25 @@ export function OwnerAuthModal() {
     setIsAuthModalOpen,
     authModalMessage,
     signIn,
-    signUp,
     isOwner,
     currentUser,
     signOut,
   } = useLearningStore();
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
 
-    if (mode === "signin") {
-      const res = await signIn(email, password);
-      setLoading(false);
-      if (res.error) {
-        setErrorMsg(res.error);
-      }
-    } else {
-      const res = await signUp(email, password, fullName);
-      setLoading(false);
-      if (res.error) {
-        setErrorMsg(res.error);
-      } else {
-        setSuccessMsg(res.success || "Owner credentials created successfully!");
-        if (mode === "signup") {
-          setTimeout(() => {
-            setMode("signin");
-          }, 1500);
-        }
-      }
+    const res = await signIn(email, password);
+    setLoading(false);
+    if (res.error) {
+      setErrorMsg(res.error);
     }
   };
 
@@ -80,17 +58,17 @@ export function OwnerAuthModal() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground">
-              {isOwner ? "Owner Mode Active" : "Read-Only Viewer Protection"}
+              {isOwner ? "Owner Mode Active" : "Owner Sign In"}
             </h3>
             <p className="text-xs text-muted-foreground">
               {isOwner
                 ? "You have full editing permissions on this knowledge vault."
-                : "Public visitors can read all notes. Sign in to edit or manage content."}
+                : "Sign in with your owner credentials to unlock edit access."}
             </p>
           </div>
         </div>
 
-        {/* Action Prompt Message if triggered by an edit click */}
+        {/* Action Prompt Message if triggered by an edit attempt */}
         {authModalMessage && !isOwner && (
           <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-semibold text-amber-600 dark:text-amber-400">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -134,70 +112,15 @@ export function OwnerAuthModal() {
             </div>
           </div>
         ) : (
-          /* Sign In or Sign Up Form */
+          /* Sign In Form Only */
           <div className="space-y-4">
-            {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 p-1 bg-secondary/80 rounded-xl border border-border/60 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("signin");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className={`py-1.5 rounded-lg transition-all cursor-pointer ${
-                  mode === "signin"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Sign In as Owner
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode("signup");
-                  setErrorMsg(null);
-                  setSuccessMsg(null);
-                }}
-                className={`py-1.5 rounded-lg transition-all cursor-pointer ${
-                  mode === "signup"
-                    ? "bg-card text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Create Credentials
-              </button>
-            </div>
-
             {errorMsg && (
               <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs font-semibold text-destructive">
                 {errorMsg}
               </div>
             )}
 
-            {successMsg && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                {successMsg}
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-3">
-              {mode === "signup" && (
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                    Full Name (Optional)
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Your Name"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    icon={<User className="h-4 w-4" />}
-                  />
-                </div>
-              )}
-
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                   Owner Email
@@ -238,11 +161,7 @@ export function OwnerAuthModal() {
 
                 <Button type="submit" disabled={loading} className="gap-1.5 text-xs font-bold shadow-xs">
                   <KeyRound className="h-3.5 w-3.5" />
-                  {loading
-                    ? "Authenticating..."
-                    : mode === "signin"
-                    ? "Sign In as Owner"
-                    : "Create Owner Credentials"}
+                  {loading ? "Authenticating..." : "Sign In as Owner"}
                 </Button>
               </div>
             </form>
